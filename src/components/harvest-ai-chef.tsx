@@ -244,7 +244,7 @@ export function HarvestAiChef() {
                                 <div>
                                   <h4 className="font-semibold mb-2">Instructions:</h4>
                                   <ol className="list-decimal list-inside space-y-2">
-                                    {recipe.instructions.map((step, i) => <li key={i}>{step}</li>)}
+                                    {recipe.instructions.map((step, i) => <li key={`${recipe.name}-step-${i}`}>{step}</li>)}
                                   </ol>
                                 </div>
                               </div>
@@ -286,7 +286,7 @@ export function HarvestAiChef() {
                                 <div>
                                   <h4 className="font-semibold mb-2">Instructions:</h4>
                                   <ol className="list-decimal list-inside space-y-2">
-                                    {recipe.instructions.map((step, i) => <li key={i}>{step}</li>)}
+                                    {recipe.instructions.map((step, i) => <li key={`${recipe.name}-step-${i}`}>{step}</li>)}
                                   </ol>
                                 </div>
                               </div>
