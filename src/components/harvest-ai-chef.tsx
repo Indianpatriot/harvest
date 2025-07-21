@@ -98,15 +98,36 @@ export function HarvestAiChef() {
 
   const isFavorite = (recipe: Recipe) => savedRecipes.some(r => r.name === recipe.name);
   
-  const renderRecipeContent = (recipe: Recipe) => (
-    <>
-      <div className="flex items-center justify-between w-full">
-        <p className="font-semibold text-lg">{recipe.name}</p>
-        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); toggleFavorite(recipe); }}>
-          <Heart className={isFavorite(recipe) ? 'fill-destructive text-destructive' : ''} />
-        </Button>
-      </div>
-    </>
+  const renderRecipeCard = (recipe: Recipe, isFavoriteRecipe: boolean) => (
+      <AccordionItem value={recipe.name} key={recipe.name}>
+          <AccordionTrigger className="hover:no-underline text-lg font-semibold">
+              {recipe.name}
+          </AccordionTrigger>
+          <AccordionContent className="p-4 pt-0">
+              <div className="space-y-4">
+                  <div className="flex justify-end">
+                      <Button variant="ghost" size="icon" onClick={() => toggleFavorite(recipe)}>
+                          <Heart className={isFavorite(recipe) ? 'fill-destructive text-destructive' : ''} />
+                          <span className="sr-only">
+                              {isFavorite(recipe) ? 'Remove from favorites' : 'Add to favorites'}
+                          </span>
+                      </Button>
+                  </div>
+                  <div>
+                      <h4 className="font-semibold mb-2">Ingredients:</h4>
+                      <div className="flex flex-wrap gap-2">
+                          {recipe.ingredients.map(ing => <Badge variant="secondary" key={ing}>{ing}</Badge>)}
+                      </div>
+                  </div>
+                  <div>
+                      <h4 className="font-semibold mb-2">Instructions:</h4>
+                      <ol className="list-decimal list-inside space-y-2">
+                          {recipe.instructions.map((step, i) => <li key={`${recipe.name}-step-${i}`}>{step}</li>)}
+                      </ol>
+                  </div>
+              </div>
+          </AccordionContent>
+      </AccordionItem>
   );
 
   return (
@@ -228,29 +249,7 @@ export function HarvestAiChef() {
                       </div>
                     ) : suggestedRecipesList.length > 0 ? (
                       <Accordion type="single" collapsible className="w-full">
-                        {suggestedRecipesList.map(recipe => (
-                          <AccordionItem value={recipe.name} key={recipe.name}>
-                            <AccordionTrigger className="hover:no-underline">
-                              {renderRecipeContent(recipe)}
-                            </AccordionTrigger>
-                            <AccordionContent className="p-4 pt-0">
-                              <div className="space-y-4">
-                                <div>
-                                  <h4 className="font-semibold mb-2">Ingredients:</h4>
-                                  <div className="flex flex-wrap gap-2">
-                                    {recipe.ingredients.map(ing => <Badge variant="secondary" key={ing}>{ing}</Badge>)}
-                                  </div>
-                                </div>
-                                <div>
-                                  <h4 className="font-semibold mb-2">Instructions:</h4>
-                                  <ol className="list-decimal list-inside space-y-2">
-                                    {recipe.instructions.map((step, i) => <li key={`${recipe.name}-step-${i}`}>{step}</li>)}
-                                  </ol>
-                                </div>
-                              </div>
-                            </AccordionContent>
-                          </AccordionItem>
-                        ))}
+                        {suggestedRecipesList.map(recipe => renderRecipeCard(recipe, isFavorite(recipe)))}
                       </Accordion>
                     ) : (
                       <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-4">
@@ -270,29 +269,7 @@ export function HarvestAiChef() {
                   <CardContent>
                      {savedRecipes.length > 0 ? (
                       <Accordion type="single" collapsible className="w-full">
-                        {savedRecipes.map(recipe => (
-                           <AccordionItem value={recipe.name} key={recipe.name}>
-                            <AccordionTrigger className="hover:no-underline">
-                              {renderRecipeContent(recipe)}
-                            </AccordionTrigger>
-                            <AccordionContent className="p-4 pt-0">
-                               <div className="space-y-4">
-                                <div>
-                                  <h4 className="font-semibold mb-2">Ingredients:</h4>
-                                  <div className="flex flex-wrap gap-2">
-                                    {recipe.ingredients.map(ing => <Badge variant="secondary" key={ing}>{ing}</Badge>)}
-                                  </div>
-                                </div>
-                                <div>
-                                  <h4 className="font-semibold mb-2">Instructions:</h4>
-                                  <ol className="list-decimal list-inside space-y-2">
-                                    {recipe.instructions.map((step, i) => <li key={`${recipe.name}-step-${i}`}>{step}</li>)}
-                                  </ol>
-                                </div>
-                              </div>
-                            </AccordionContent>
-                          </AccordionItem>
-                        ))}
+                        {savedRecipes.map(recipe => renderRecipeCard(recipe, true))}
                       </Accordion>
                     ) : (
                        <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-4">
