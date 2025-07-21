@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import Image from 'next/image';
 import { identifyIngredients } from '@/ai/flows/identify-ingredients';
-import { suggestRecipes } from '@/ai/flows/suggest-recipes';
+import { suggestRecipes, SuggestRecipesOutput } from '@/ai/flows/suggest-recipes';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,8 +12,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, Trash2, PlusCircle, ChefHat, Heart, Loader2 } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
-type Recipe = string;
+type Recipe = SuggestRecipesOutput[0];
 
 export function HarvestAiChef() {
   const { toast } = useToast();
@@ -88,15 +89,26 @@ export function HarvestAiChef() {
   };
 
   const toggleFavorite = (recipe: Recipe) => {
-    if (savedRecipes.includes(recipe)) {
-      setSavedRecipes(savedRecipes.filter(r => r !== recipe));
+    if (savedRecipes.some(r => r.name === recipe.name)) {
+      setSavedRecipes(savedRecipes.filter(r => r.name !== recipe.name));
     } else {
       setSavedRecipes([...savedRecipes, recipe]);
     }
   };
 
-  const isFavorite = (recipe: Recipe) => savedRecipes.includes(recipe);
+  const isFavorite = (recipe: Recipe) => savedRecipes.some(r => r.name === recipe.name);
   
+  const renderRecipeContent = (recipe: Recipe) => (
+    <>
+      <div className="flex items-center justify-between w-full">
+        <p className="font-semibold text-lg">{recipe.name}</p>
+        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); toggleFavorite(recipe); }}>
+          <Heart className={isFavorite(recipe) ? 'fill-destructive text-destructive' : ''} />
+        </Button>
+      </div>
+    </>
+  );
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="py-8 px-4 md:px-8 text-center">
@@ -206,28 +218,40 @@ export function HarvestAiChef() {
                     {isSuggesting ? (
                       <div className="space-y-4">
                         {[...Array(3)].map((_, i) => (
-                           <div key={i} className="flex items-center space-x-4">
-                             <Skeleton className="h-12 w-12 rounded-lg" />
+                           <div key={i} className="flex items-center space-x-4 p-4 border rounded-lg">
                              <div className="space-y-2 flex-1">
-                               <Skeleton className="h-4 w-3/4" />
+                               <Skeleton className="h-5 w-3/4" />
                                <Skeleton className="h-4 w-1/2" />
                              </div>
                            </div>
                         ))}
                       </div>
                     ) : suggestedRecipesList.length > 0 ? (
-                      <ul className="space-y-3">
+                      <Accordion type="single" collapsible className="w-full">
                         {suggestedRecipesList.map(recipe => (
-                          <li key={recipe}>
-                            <Card className="flex items-center justify-between p-4 transition-all hover:bg-secondary/50">
-                              <p className="font-semibold text-lg">{recipe}</p>
-                              <Button variant="ghost" size="icon" onClick={() => toggleFavorite(recipe)}>
-                                <Heart className={isFavorite(recipe) ? 'fill-destructive text-destructive' : ''} />
-                              </Button>
-                            </Card>
-                          </li>
+                          <AccordionItem value={recipe.name} key={recipe.name}>
+                            <AccordionTrigger className="hover:no-underline">
+                              {renderRecipeContent(recipe)}
+                            </AccordionTrigger>
+                            <AccordionContent className="p-4 pt-0">
+                              <div className="space-y-4">
+                                <div>
+                                  <h4 className="font-semibold mb-2">Ingredients:</h4>
+                                  <div className="flex flex-wrap gap-2">
+                                    {recipe.ingredients.map(ing => <Badge variant="secondary" key={ing}>{ing}</Badge>)}
+                                  </div>
+                                </div>
+                                <div>
+                                  <h4 className="font-semibold mb-2">Instructions:</h4>
+                                  <ol className="list-decimal list-inside space-y-2">
+                                    {recipe.instructions.map((step, i) => <li key={i}>{step}</li>)}
+                                  </ol>
+                                </div>
+                              </div>
+                            </AccordionContent>
+                          </AccordionItem>
                         ))}
-                      </ul>
+                      </Accordion>
                     ) : (
                       <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-4">
                         <ChefHat className="h-16 w-16" />
@@ -245,18 +269,31 @@ export function HarvestAiChef() {
                   </CardHeader>
                   <CardContent>
                      {savedRecipes.length > 0 ? (
-                      <ul className="space-y-3">
+                      <Accordion type="single" collapsible className="w-full">
                         {savedRecipes.map(recipe => (
-                          <li key={recipe}>
-                            <Card className="flex items-center justify-between p-4">
-                              <p className="font-semibold text-lg">{recipe}</p>
-                              <Button variant="ghost" size="icon" onClick={() => toggleFavorite(recipe)}>
-                                <Heart className="fill-destructive text-destructive" />
-                              </Button>
-                            </Card>
-                          </li>
+                           <AccordionItem value={recipe.name} key={recipe.name}>
+                            <AccordionTrigger className="hover:no-underline">
+                              {renderRecipeContent(recipe)}
+                            </AccordionTrigger>
+                            <AccordionContent className="p-4 pt-0">
+                               <div className="space-y-4">
+                                <div>
+                                  <h4 className="font-semibold mb-2">Ingredients:</h4>
+                                  <div className="flex flex-wrap gap-2">
+                                    {recipe.ingredients.map(ing => <Badge variant="secondary" key={ing}>{ing}</Badge>)}
+                                  </div>
+                                </div>
+                                <div>
+                                  <h4 className="font-semibold mb-2">Instructions:</h4>
+                                  <ol className="list-decimal list-inside space-y-2">
+                                    {recipe.instructions.map((step, i) => <li key={i}>{step}</li>)}
+                                  </ol>
+                                </div>
+                              </div>
+                            </AccordionContent>
+                          </AccordionItem>
                         ))}
-                      </ul>
+                      </Accordion>
                     ) : (
                        <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-4">
                          <Heart className="h-16 w-16" />
