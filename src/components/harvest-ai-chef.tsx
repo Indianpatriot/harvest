@@ -135,7 +135,8 @@ export function HarvestAiChef() {
 
   const isFavorite = (recipe: Recipe) => savedRecipes.some(r => r.name === recipe.name);
   
-  const renderRecipeCard = (recipe: Recipe) => (
+  const renderRecipeCard = (recipe: Recipe) => {
+      return (
       <AccordionItem value={recipe.name} key={recipe.name}>
           <AccordionTrigger className="hover:no-underline text-lg font-semibold text-left">
               {recipe.name}
@@ -165,7 +166,8 @@ export function HarvestAiChef() {
               </div>
           </AccordionContent>
       </AccordionItem>
-  );
+      );
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -353,7 +355,7 @@ export function HarvestAiChef() {
                   <CardHeader>
                     <CardTitle className="text-2xl font-headline">Saved Recipes</CardTitle>
                     <CardDescription>Your collection of favorite meals.</CardDescription>
-                  </Header>
+                  </CardHeader>
                   <CardContent>
                      {savedRecipes.length > 0 ? (
                       <Accordion type="single" collapsible className="w-full">
@@ -375,3 +377,5 @@ export function HarvestAiChef() {
     </div>
   );
 }
+
+    
