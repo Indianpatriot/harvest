@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -20,7 +21,7 @@ const RecipeSchema = z.object({
   name: z.string().describe('The name of the recipe.'),
   ingredients: z.array(z.string()).describe('A list of ingredients required for this recipe.'),
   instructions: z.array(z.string()).describe('The step-by-step instructions to prepare the recipe.'),
-  imageUrl: z.string().url().describe("A URL for an image of the recipe. This will be a data URI representing a generated image."),
+  imageUrl: z.string().describe("A URL for an image of the recipe. This will be a data URI representing a generated image."),
 });
 
 const FindRecipesByNameOutputSchema = z.array(RecipeSchema);
@@ -86,18 +87,29 @@ const findRecipesByNameFlow = ai.defineFlow(
     // Generate an image for each recipe in parallel.
     const recipesWithImages = await Promise.all(
         recipeIdeas.map(async (idea) => {
-            const {media} = await ai.generate({
-                model: 'googleai/gemini-2.0-flash-preview-image-generation',
-                prompt: idea.imagePrompt,
-                config: {
-                    responseModalities: ['TEXT', 'IMAGE'],
-                },
-            });
-            return {
-                name: idea.name,
-                ingredients: idea.ingredients,
-                instructions: idea.instructions,
-                imageUrl: media?.url ?? `https://placehold.co/600x400.png`
+            try {
+                const {media} = await ai.generate({
+                    model: 'googleai/gemini-2.0-flash-preview-image-generation',
+                    prompt: idea.imagePrompt,
+                    config: {
+                        responseModalities: ['TEXT', 'IMAGE'],
+                    },
+                });
+                return {
+                    name: idea.name,
+                    ingredients: idea.ingredients,
+                    instructions: idea.instructions,
+                    imageUrl: media?.url ?? `https://placehold.co/600x400.png`
+                }
+            } catch (error) {
+                console.error(`Error generating image for recipe "${idea.name}":`, error);
+                // Fallback to a placeholder if image generation fails
+                return {
+                    name: idea.name,
+                    ingredients: idea.ingredients,
+                    instructions: idea.instructions,
+                    imageUrl: `https://placehold.co/600x400.png`
+                }
             }
         })
     );
