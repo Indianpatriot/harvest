@@ -221,6 +221,20 @@ export function HarvestAiChef() {
         try {
           const result = await findRecipesByName({ query: recipeQuery });
           setSuggestedRecipesList(result);
+          
+          const allIngredients = new Set<string>();
+          result.forEach(recipe => {
+              recipe.ingredients.forEach(ing => allIngredients.add(ing.toLowerCase()));
+          });
+
+          const newIngredients: EditableIngredient[] = Array.from(allIngredients).map((name, index) => ({
+              id: `search-${Date.now()}-${index}`,
+              name: name,
+              confidence: 1.0,
+          }));
+
+          setIngredients(newIngredients);
+
         } catch (error) {
           console.error('Error finding recipes:', error);
           toast({
