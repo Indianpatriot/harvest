@@ -204,7 +204,6 @@ export function HarvestAiChef() {
         });
         return;
       }
-      setActiveTab('recipes');
       startFinding(async () => {
         try {
           const result = await findRecipesByName({ query: recipeQuery });
@@ -222,6 +221,7 @@ export function HarvestAiChef() {
           }));
 
           setIngredients(newIngredients);
+          setActiveTab('ingredients');
 
         } catch (error) {
           console.error('Error finding recipes:', error);
@@ -506,3 +506,5 @@ export function HarvestAiChef() {
     </div>
   );
 }
+
+    
