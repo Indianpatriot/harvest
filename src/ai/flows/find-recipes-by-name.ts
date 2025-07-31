@@ -20,7 +20,7 @@ const RecipeSchema = z.object({
   name: z.string().describe('The name of the recipe.'),
   ingredients: z.array(z.string()).describe('A list of ingredients required for this recipe.'),
   instructions: z.array(z.string()).describe('The step-by-step instructions to prepare the recipe.'),
-  imageUrl: z.string().url().describe("A URL for an image of the recipe. Should be a placeholder from 'https://placehold.co/600x400.png' with a data-ai-hint attribute describing the dish."),
+  imageUrl: z.string().describe("A URL for an image of the recipe. Should be a placeholder from 'https://placehold.co/600x400.png' with a data-ai-hint attribute describing the dish."),
 });
 
 const FindRecipesByNameOutputSchema = z.array(RecipeSchema).describe('A list of recipe suggestions based on the user query.');
