@@ -1,38 +1,43 @@
 
 'use client';
 
-import { useState, useTransition, useRef } from 'react';
+import { useState, useTransition, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { identifyIngredients, IdentifyIngredientsOutput } from '@/ai/flows/identify-ingredients';
 import { suggestRecipes, SuggestRecipesOutput } from '@/ai/flows/suggest-recipes';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Trash2, PlusCircle, ChefHat, Heart, Loader2, Check, X, Pencil } from 'lucide-react';
+import { Upload, Trash2, PlusCircle, ChefHat, Heart, Loader2, Check, X, Pencil, Sparkles, Utensils, Sandwich, Soup } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { RecipeCard } from './recipe-card';
+import { AnimatePresence, motion } from 'framer-motion';
 
 type Recipe = SuggestRecipesOutput[0];
-type IdentifiedIngredient = IdentifyIngredientsOutput['ingredients'][0] & { status: 'pending' | 'accepted' | 'rejected' };
+type IdentifiedIngredient = IdentifyIngredientsOutput['ingredients'][0];
 type EditableIngredient = IdentifiedIngredient & { isEditing?: boolean; originalName?: string };
+
+const getConfidenceColor = (confidence: number) => {
+  if (confidence > 0.9) return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800/60';
+  if (confidence > 0.6) return 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800/60';
+  return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-800/60';
+};
 
 export function HarvestAiChef() {
   const { toast } = useToast();
   const [isIdentifying, startIdentifying] = useTransition();
   const [isSuggesting, startSuggesting] = useTransition();
 
+  const [activeTab, setActiveTab] = useState('upload');
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [ingredients, setIngredients] = useState<EditableIngredient[]>([]);
   const [newIngredient, setNewIngredient] = useState('');
   const [suggestedRecipesList, setSuggestedRecipesList] = useState<Recipe[]>([]);
-  const [savedRecipes, setSavedRecipes] = useState<Recipe[]>([]);
+  const [savedRecipes, setSavedRecipes] = useLocalStorage<Recipe[]>('saved-recipes', []);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const handleImageUpload = (file: File | null) => {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -41,37 +46,57 @@ export function HarvestAiChef() {
         startIdentifying(async () => {
           try {
             const result = await identifyIngredients({ photoDataUri: dataUri });
-            setIngredients(result.ingredients.map(ing => ({ ...ing, status: 'pending' })));
-            setSuggestedRecipesList([]); // Clear previous suggestions
+            setIngredients(result.ingredients.map(ing => ({ ...ing })));
+            setSuggestedRecipesList([]);
+            setActiveTab('ingredients');
           } catch (error) {
             console.error('Error identifying ingredients:', error);
             toast({
               variant: 'destructive',
-              title: 'Error',
-              description: 'Could not identify ingredients from the image. Please try another one.',
+              title: 'Error Identifying Ingredients',
+              description: 'Could not identify ingredients from the image. Please try another one or add them manually.',
             });
+            setUploadedImage(null);
           }
         });
       };
       reader.readAsDataURL(file);
     }
   };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    handleImageUpload(event.target.files?.[0] ?? null);
+  }
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.classList.remove('border-primary');
+    handleImageUpload(event.dataTransfer.files?.[0] ?? null);
+  };
   
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.classList.add('border-primary');
+  };
+
+  const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.classList.remove('border-primary');
+  };
+
   const handleAddIngredient = () => {
-    if (newIngredient.trim() && !ingredients.some(i => i.name === newIngredient.trim())) {
+    if (newIngredient.trim() && !ingredients.some(i => i.name.toLowerCase() === newIngredient.trim().toLowerCase())) {
       const newIng: EditableIngredient = {
         id: `manual-${Date.now()}`,
         name: newIngredient.trim(),
         confidence: 1.0,
-        status: 'accepted',
       };
-      setIngredients([...ingredients, newIng]);
+      setIngredients([newIng, ...ingredients]);
       setNewIngredient('');
     }
-  };
-
-  const handleUpdateIngredientStatus = (id: string, status: 'accepted' | 'rejected') => {
-    setIngredients(ingredients.map(ing => ing.id === id ? { ...ing, status } : ing));
   };
 
   const handleEditIngredient = (id: string) => {
@@ -88,28 +113,33 @@ export function HarvestAiChef() {
   };
 
   const handleSaveIngredient = (id: string) => {
-    setIngredients(ingredients.map(ing => ing.id === id ? { ...ing, isEditing: false, status: 'accepted' } : ing));
+    setIngredients(ingredients.map(ing => ing.id === id ? { ...ing, isEditing: false } : ing));
   };
   
   const handleIngredientNameChange = (id: string, newName: string) => {
     setIngredients(ingredients.map(ing => ing.id === id ? { ...ing, name: newName } : ing));
   };
 
-
   const handleRemoveIngredient = (id: string) => {
+    const removedIngredient = ingredients.find(i => i.id === id);
     setIngredients(ingredients.filter(i => i.id !== id));
+    toast({
+      title: `Removed '${removedIngredient?.name}'`,
+      description: "You can re-add it manually if this was a mistake.",
+    });
   };
 
   const handleGetRecipes = () => {
-    const acceptedIngredients = ingredients.filter(i => i.status === 'accepted').map(i => i.name);
+    const acceptedIngredients = ingredients.map(i => i.name);
     if (acceptedIngredients.length === 0) {
       toast({
         variant: 'destructive',
-        title: 'No Accepted Ingredients',
-        description: 'Please accept or add some ingredients first.',
+        title: 'No Ingredients',
+        description: 'Please add some ingredients first.',
       });
       return;
     }
+    setActiveTab('recipes');
     startSuggesting(async () => {
       try {
         const result = await suggestRecipes({ ingredients: acceptedIngredients });
@@ -118,264 +148,249 @@ export function HarvestAiChef() {
         console.error('Error suggesting recipes:', error);
         toast({
           variant: 'destructive',
-          title: 'Error',
+          title: 'Error Fetching Recipes',
           description: 'Could not fetch recipe suggestions. Please try again.',
         });
       }
     });
   };
 
-  const toggleFavorite = (recipe: Recipe) => {
-    if (savedRecipes.some(r => r.name === recipe.name)) {
-      setSavedRecipes(savedRecipes.filter(r => r.name !== recipe.name));
-    } else {
-      setSavedRecipes([...savedRecipes, recipe]);
-    }
-  };
+  const toggleFavorite = useCallback((recipe: Recipe) => {
+    setSavedRecipes(prev => {
+      if (prev.some(r => r.name === recipe.name)) {
+        return prev.filter(r => r.name !== recipe.name);
+      } else {
+        return [...prev, recipe];
+      }
+    });
+  }, [setSavedRecipes]);
 
-  const isFavorite = (recipe: Recipe) => savedRecipes.some(r => r.name === recipe.name);
-  
-  const renderRecipeCard = (recipe: Recipe) => {
-      return (
-      <AccordionItem value={recipe.name} key={recipe.name}>
-          <AccordionTrigger className="hover:no-underline text-lg font-semibold text-left">
-              {recipe.name}
-          </AccordionTrigger>
-          <AccordionContent className="p-4 pt-0">
-              <div className="space-y-4">
-                  <div className="flex justify-end">
-                      <Button variant="ghost" size="icon" onClick={() => toggleFavorite(recipe)}>
-                          <Heart className={isFavorite(recipe) ? 'fill-destructive text-destructive' : ''} />
-                          <span className="sr-only">
-                              {isFavorite(recipe) ? 'Remove from favorites' : 'Add to favorites'}
-                          </span>
-                      </Button>
-                  </div>
-                  <div>
-                      <h4 className="font-semibold mb-2">Ingredients:</h4>
-                      <div className="flex flex-wrap gap-2">
-                          {recipe.ingredients.map(ing => <Badge variant="secondary" key={ing}>{ing}</Badge>)}
-                      </div>
-                  </div>
-                  <div>
-                      <h4 className="font-semibold mb-2">Instructions:</h4>
-                      <ol className="list-decimal list-inside space-y-2">
-                          {recipe.instructions.map((step, i) => <li key={`${recipe.name}-step-${i}`}>{step}</li>)}
-                      </ol>
-                  </div>
-              </div>
-          </AccordionContent>
-      </AccordionItem>
-      );
-  };
+  const isFavorite = useCallback((recipe: Recipe) => savedRecipes.some(r => r.name === recipe.name), [savedRecipes]);
+
+  const renderNavButton = (tabName: string, icon: React.ReactNode, label: string) => (
+    <Button
+      variant={activeTab === tabName ? "default" : "ghost"}
+      className="flex-1 justify-center gap-2"
+      onClick={() => setActiveTab(tabName)}
+      disabled={(tabName === 'ingredients' && ingredients.length === 0) || (tabName === 'recipes' && suggestedRecipesList.length === 0 && savedRecipes.length === 0) }
+    >
+      {icon} {label}
+    </Button>
+  );
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="py-8 px-4 md:px-8 text-center">
-        <h1 className="text-4xl md:text-5xl font-bold font-headline text-primary flex items-center justify-center gap-3">
-            <ChefHat size={48} />
+    <div className="min-h-screen bg-background text-foreground font-body flex flex-col">
+      <header className="py-6 px-4 text-center border-b border-border/60 sticky top-0 bg-background/80 backdrop-blur-sm z-20">
+        <h1 className="text-3xl md:text-4xl font-bold font-headline text-primary flex items-center justify-center gap-3">
+            <ChefHat size={36} />
             Harvest AI Chef
         </h1>
-        <p className="mt-2 text-lg text-muted-foreground">Upload a photo of your ingredients and get instant recipe ideas!</p>
+        <p className="mt-1 text-md text-muted-foreground">Your smart kitchen assistant for instant recipe ideas!</p>
       </header>
+      
+      <div className="border-b border-border/60 shadow-sm sticky top-[105px] md:top-[113px] bg-background/80 backdrop-blur-sm z-20">
+        <nav className="container mx-auto px-4 flex justify-center items-center gap-2 py-2">
+            {renderNavButton('upload', <Upload size={18}/>, 'Upload')}
+            {renderNavButton('ingredients', <Sparkles size={18}/>, 'Ingredients')}
+            {renderNavButton('recipes', <Utensils size={18}/>, 'Recipes')}
+        </nav>
+      </div>
 
-      <main className="container mx-auto px-4 pb-16">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-          <div className="flex flex-col gap-8">
-            <Card className="shadow-lg">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-2xl font-headline">
-                  <Upload />1. Upload Your Ingredients
-                </CardTitle>
-                <CardDescription>Take a picture of what you have in your fridge or pantry.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col items-center gap-4">
-                  <div className="w-full h-64 border-2 border-dashed border-border rounded-lg flex items-center justify-center bg-secondary/50 relative" data-ai-hint="food ingredients">
-                    {isIdentifying && (
-                      <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-10">
-                        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                      </div>
-                    )}
-                    {uploadedImage ? (
-                      <Image src={uploadedImage} alt="Uploaded ingredients" fill className="object-contain rounded-lg p-1" />
-                    ) : (
-                      <p className="text-muted-foreground">Image preview will appear here</p>
-                    )}
-                  </div>
-                   <Button onClick={() => fileInputRef.current?.click()} className="w-full" variant="outline" disabled={isIdentifying}>
-                     {isIdentifying ? "Analyzing..." : "Choose a Photo"}
-                   </Button>
-                   <Input id="file-upload" type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={isIdentifying} ref={fileInputRef}/>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-lg">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-2xl font-headline">
-                        <span className="font-bold">2.</span> Your Ingredients
-                    </CardTitle>
-                    <CardDescription>Review and edit the ingredients identified from your photo.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                      {isIdentifying && [...Array(3)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
-                      
-                      {!isIdentifying && ingredients.length > 0 && (
-                        <ul className="space-y-2">
-                          {ingredients.map((ingredient) => (
-                            <li key={ingredient.id} className="flex items-center gap-2 p-2 rounded-md bg-secondary/50">
-                              {ingredient.isEditing ? (
-                                <Input
-                                  value={ingredient.name}
-                                  onChange={(e) => handleIngredientNameChange(ingredient.id, e.target.value)}
-                                  className="h-8 flex-grow"
-                                  autoFocus
-                                />
-                              ) : (
-                                <>
-                                  <span className="flex-grow font-medium capitalize">{ingredient.name}</span>
-                                  {ingredient.status !== 'accepted' && (
-                                    <Badge variant={ingredient.confidence > 0.8 ? "default" : ingredient.confidence > 0.5 ? "secondary" : "destructive"} className="bg-opacity-70">
-                                      {(ingredient.confidence * 100).toFixed(0)}%
-                                    </Badge>
-                                  )}
-                                </>
-                              )}
-
-                              <div className="flex items-center gap-1 ml-auto">
-                                {ingredient.isEditing ? (
-                                  <>
-                                    <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600 hover:text-green-600" onClick={() => handleSaveIngredient(ingredient.id)}>
-                                      <Check className="h-4 w-4" />
-                                    </Button>
-                                    <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600 hover:text-red-600" onClick={() => handleCancelEdit(ingredient.id)}>
-                                      <X className="h-4 w-4" />
-                                    </Button>
-                                  </>
-                                ) : (
-                                  <>
-                                    {ingredient.status === 'pending' && (
-                                      <>
-                                        <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600 hover:text-green-600" onClick={() => handleUpdateIngredientStatus(ingredient.id, 'accepted')}>
-                                            <Check className="h-4 w-4" />
-                                        </Button>
-                                        <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600 hover:text-red-600" onClick={() => handleUpdateIngredientStatus(ingredient.id, 'rejected')}>
-                                            <X className="h-4 w-4" />
-                                        </Button>
-                                      </>
-                                    )}
-                                    {ingredient.status === 'accepted' && (
-                                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleEditIngredient(ingredient.id)}>
-                                        <Pencil className="h-4 w-4" />
-                                      </Button>
-                                    )}
-                                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleRemoveIngredient(ingredient.id)}>
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </>
-                                )}
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-
-                      {!isIdentifying && ingredients.length === 0 && (
-                          <p className="text-muted-foreground text-center py-4">No ingredients identified yet.</p>
+      <main className="container mx-auto px-4 py-8 flex-grow">
+          <AnimatePresence mode="wait">
+            <motion.div
+                key={activeTab}
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -20, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+            >
+                {activeTab === 'upload' && (
+                  <div className="max-w-2xl mx-auto flex flex-col items-center text-center gap-6">
+                    <div 
+                      className="w-full h-80 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center bg-secondary/20 relative transition-colors duration-300"
+                      onDrop={handleDrop}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      data-ai-hint="food ingredients vegetables fruits"
+                    >
+                      {isIdentifying ? (
+                        <div className="absolute inset-0 bg-background/90 flex flex-col items-center justify-center z-10 rounded-xl">
+                          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                          <p className="text-lg font-semibold mt-4 text-primary">Analyzing your ingredients...</p>
+                        </div>
+                      ) : (
+                        <>
+                          <Upload className="h-16 w-16 text-muted-foreground mb-4" />
+                          <h2 className="text-2xl font-bold font-headline">Upload Your Ingredients</h2>
+                          <p className="text-muted-foreground mt-2">Drag & drop an image here or click to select a file.</p>
+                        </>
                       )}
                     </div>
-                    <div className="mt-4 flex gap-2">
-                        <Input 
-                            value={newIngredient}
-                            onChange={(e) => setNewIngredient(e.target.value)}
-                            placeholder="Add an ingredient manually"
-                            onKeyDown={(e) => e.key === 'Enter' && handleAddIngredient()}
-                        />
-                        <Button onClick={handleAddIngredient} size="icon" variant="outline">
-                            <PlusCircle className="h-5 w-5" />
-                        </Button>
-                    </div>
-                </CardContent>
-                <CardFooter>
-                    <Button onClick={handleGetRecipes} className="w-full bg-accent text-accent-foreground hover:bg-accent/90 text-lg py-6" disabled={isSuggesting || ingredients.filter(i => i.status === 'accepted').length === 0}>
-                        {isSuggesting ? (
-                            <>
-                                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                                Generating...
-                            </>
-                        ) : (
-                            "Get Recipe Suggestions"
-                        )}
+                    <Button size="lg" onClick={() => fileInputRef.current?.click()} className="w-full sm:w-auto" variant="primary" disabled={isIdentifying}>
+                      {isIdentifying ? "Analyzing..." : "Choose a Photo"}
                     </Button>
-                </CardFooter>
-            </Card>
-          </div>
-
-          <div className="sticky top-8">
-            <Tabs defaultValue="suggestions" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="suggestions">Suggestions</TabsTrigger>
-                <TabsTrigger value="favorites">Favorites ({savedRecipes.length})</TabsTrigger>
-              </TabsList>
-              <TabsContent value="suggestions">
-                <Card className="shadow-lg min-h-[30rem]">
-                  <CardHeader>
-                    <CardTitle className="text-2xl font-headline">Recipe Ideas</CardTitle>
-                    <CardDescription>Based on your ingredients, here are some tasty ideas.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {isSuggesting ? (
-                      <div className="space-y-4">
-                        {[...Array(3)].map((_, i) => (
-                           <div key={i} className="flex items-center space-x-4 p-4 border rounded-lg">
-                             <div className="space-y-2 flex-1">
-                               <Skeleton className="h-5 w-3/4" />
-                               <Skeleton className="h-4 w-1/2" />
-                             </div>
+                    <Input id="file-upload" type="file" accept="image/*" className="hidden" onChange={handleFileChange} disabled={isIdentifying} ref={fileInputRef}/>
+                  </div>
+                )}
+                
+                {activeTab === 'ingredients' && (
+                  <div className="max-w-4xl mx-auto">
+                    <div className="bg-card p-4 sm:p-6 rounded-xl shadow-sm border border-border/60">
+                        <h2 className="text-2xl font-bold font-headline flex items-center gap-2 mb-4">
+                           <Sparkles size={24}/> Your Ingredients
+                        </h2>
+                        
+                        <div className="mb-6 flex gap-2">
+                           <Input 
+                               value={newIngredient}
+                               onChange={(e) => setNewIngredient(e.target.value)}
+                               placeholder="Add an ingredient manually (e.g. olive oil)"
+                               onKeyDown={(e) => e.key === 'Enter' && handleAddIngredient()}
+                               className="bg-background"
+                           />
+                           <Button onClick={handleAddIngredient} variant="outline" className="shrink-0">
+                               <PlusCircle className="h-5 w-5 mr-2" />
+                               Add
+                           </Button>
+                        </div>
+                        
+                        <AnimatePresence>
+                         {ingredients.length > 0 ? (
+                           <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                             {ingredients.map((ingredient) => (
+                               <motion.li 
+                                 key={ingredient.id} 
+                                 layout
+                                 initial={{ opacity: 0, y: 20 }}
+                                 animate={{ opacity: 1, y: 0 }}
+                                 exit={{ opacity: 0, x: -50 }}
+                                 transition={{ duration: 0.3 }}
+                                 className="flex items-center gap-2 p-2 rounded-lg bg-secondary/30"
+                               >
+                                 {ingredient.isEditing ? (
+                                   <Input
+                                     value={ingredient.name}
+                                     onChange={(e) => handleIngredientNameChange(ingredient.id, e.target.value)}
+                                     className="h-8 flex-grow bg-background"
+                                     autoFocus
+                                     onKeyDown={(e) => e.key === 'Enter' && handleSaveIngredient(ingredient.id)}
+                                   />
+                                 ) : (
+                                   <>
+                                     <span className="flex-grow font-medium capitalize truncate">{ingredient.name}</span>
+                                     <div className={`text-xs font-bold px-2 py-1 rounded-full border ${getConfidenceColor(ingredient.confidence)}`}>
+                                        {(ingredient.confidence * 100).toFixed(0)}%
+                                     </div>
+                                   </>
+                                 )}
+ 
+                                 <div className="flex items-center gap-1 ml-auto shrink-0">
+                                   {ingredient.isEditing ? (
+                                     <>
+                                       <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600 hover:text-green-600" onClick={() => handleSaveIngredient(ingredient.id)}>
+                                         <Check className="h-4 w-4" />
+                                       </Button>
+                                       <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600 hover:text-red-600" onClick={() => handleCancelEdit(ingredient.id)}>
+                                         <X className="h-4 w-4" />
+                                       </Button>
+                                     </>
+                                   ) : (
+                                     <>
+                                       <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-600 hover:text-blue-600" onClick={() => handleEditIngredient(ingredient.id)}>
+                                         <Pencil className="h-4 w-4" />
+                                       </Button>
+                                       <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600 hover:text-red-600" onClick={() => handleRemoveIngredient(ingredient.id)}>
+                                         <Trash2 className="h-4 w-4" />
+                                       </Button>
+                                     </>
+                                   )}
+                                 </div>
+                               </motion.li>
+                             ))}
+                           </ul>
+                         ) : (
+                           <div className="text-center py-10 text-muted-foreground border-2 border-dashed border-border/60 rounded-lg">
+                             <p>Your ingredients list is empty.</p>
+                             <p className="text-sm">Upload a photo or add items manually to begin.</p>
                            </div>
-                        ))}
-                      </div>
-                    ) : suggestedRecipesList.length > 0 ? (
-                      <Accordion type="single" collapsible className="w-full">
-                        {suggestedRecipesList.map(recipe => renderRecipeCard(recipe))}
-                      </Accordion>
-                    ) : (
-                      <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-4">
-                        <ChefHat className="h-16 w-16" />
-                        <p className="text-lg">Your recipe suggestions will appear here.</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-              <TabsContent value="favorites">
-                <Card className="shadow-lg min-h-[30rem]">
-                  <CardHeader>
-                    <CardTitle className="text-2xl font-headline">Saved Recipes</CardTitle>
-                    <CardDescription>Your collection of favorite meals.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                     {savedRecipes.length > 0 ? (
-                      <Accordion type="single" collapsible className="w-full">
-                        {savedRecipes.map(recipe => renderRecipeCard(recipe))}
-                      </Accordion>
-                    ) : (
-                       <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-4">
-                         <Heart className="h-16 w-16" />
-                         <p className="text-lg">You haven't saved any recipes yet.</p>
-                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          </div>
-        </div>
+                         )}
+                         </AnimatePresence>
+                     </div>
+                     <div className="mt-6 flex justify-end">
+                       <Button onClick={handleGetRecipes} size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90 text-lg py-6 w-full sm:w-auto" disabled={isSuggesting || ingredients.length === 0}>
+                           {isSuggesting ? (
+                               <>
+                                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                                   Generating Recipes...
+                               </>
+                           ) : (
+                               "🔪 Cook with These Ingredients"
+                           )}
+                       </Button>
+                     </div>
+                  </div>
+                )}
+
+                {activeTab === 'recipes' && (
+                   <div>
+                     <div className="flex justify-center mb-6">
+                        <div className="bg-card p-1 rounded-full border shadow-sm">
+                            <Button variant={suggestedRecipesList.length > 0 ? "secondary" : "ghost"} onClick={() => setSuggestedRecipesList(suggestedRecipesList)} className="rounded-full" >Suggestions</Button>
+                            <Button variant={savedRecipes.length > 0 && suggestedRecipesList.length === 0 ? "secondary" : "ghost"} onClick={() => setSuggestedRecipesList([])} className="rounded-full">Favorites ({savedRecipes.length})</Button>
+                        </div>
+                     </div>
+                     
+                     {isSuggesting ? (
+                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {[...Array(3)].map((_, i) => (
+                                <div key={i} className="bg-card rounded-xl shadow-md border p-4 space-y-4">
+                                  <Skeleton className="h-40 w-full rounded-lg" />
+                                  <Skeleton className="h-6 w-3/4" />
+                                  <div className="flex flex-wrap gap-2">
+                                    <Skeleton className="h-5 w-16 rounded-full" />
+                                    <Skeleton className="h-5 w-20 rounded-full" />
+                                    <Skeleton className="h-5 w-12 rounded-full" />
+                                  </div>
+                                </div>
+                            ))}
+                        </div>
+                     ) : (
+                       (suggestedRecipesList.length > 0 || savedRecipes.length > 0) ? (
+                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-8">
+                             <AnimatePresence>
+                             {(suggestedRecipesList.length > 0 ? suggestedRecipesList : savedRecipes).map((recipe) => (
+                               <motion.div
+                                 key={recipe.name}
+                                 layout
+                                 initial={{ opacity: 0, scale: 0.8 }}
+                                 animate={{ opacity: 1, scale: 1 }}
+                                 exit={{ opacity: 0, scale: 0.8 }}
+                                 transition={{ duration: 0.4, type: "spring" }}
+                               >
+                                 <RecipeCard 
+                                   recipe={recipe} 
+                                   isFavorite={isFavorite(recipe)}
+                                   onToggleFavorite={toggleFavorite}
+                                 />
+                               </motion.div>
+                             ))}
+                             </AnimatePresence>
+                         </div>
+                       ) : (
+                         <div className="text-center py-24 text-muted-foreground flex flex-col items-center gap-4">
+                             <Soup className="h-24 w-24 text-border" />
+                             <h3 className="text-2xl font-bold font-headline text-foreground">Nothing to see here... yet!</h3>
+                             <p className="max-w-md">Once you add ingredients and generate recipes, your culinary masterpieces will appear here.</p>
+                             <Button onClick={() => setActiveTab('upload')}>Start by Uploading Ingredients</Button>
+                         </div>
+                       )
+                     )}
+                   </div>
+                )}
+            </motion.div>
+          </AnimatePresence>
       </main>
     </div>
   );
 }
-
-    
