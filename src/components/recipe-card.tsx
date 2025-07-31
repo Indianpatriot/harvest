@@ -4,10 +4,12 @@
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Button } from './ui/button';
-import { Heart, ChevronDown } from 'lucide-react';
+import { Heart, ChevronDown, ImageOff } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 import type { SuggestRecipesOutput } from '@/ai/flows/suggest-recipes';
+import { useState } from 'react';
+import { cn } from '@/lib/utils';
 
 type Recipe = SuggestRecipesOutput[0];
 
@@ -18,17 +20,33 @@ interface RecipeCardProps {
 }
 
 export function RecipeCard({ recipe, isFavorite, onToggleFavorite }: RecipeCardProps) {
+  const [imgError, setImgError] = useState(false);
+  const [imgLoading, setImgLoading] = useState(true);
+
   return (
     <div className="bg-card rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 border border-border/60 overflow-hidden flex flex-col h-full">
-      <div className="relative">
-        <Image 
-          src={`https://placehold.co/600x400.png`}
-          alt={recipe.name}
-          width={600}
-          height={400}
-          className="object-cover w-full h-48"
-          data-ai-hint="gourmet food dish"
-        />
+      <div className="relative h-48">
+        {imgError ? (
+            <div className="w-full h-full bg-secondary flex flex-col items-center justify-center text-muted-foreground">
+                <ImageOff className="w-12 h-12" />
+                <p className="mt-2 text-sm font-semibold">No Image Available</p>
+            </div>
+        ) : (
+            <Image 
+                src={recipe.imageUrl}
+                alt={recipe.name}
+                fill
+                className={cn(
+                    "object-cover w-full h-full transition-opacity duration-300",
+                    imgLoading ? "opacity-0" : "opacity-100"
+                )}
+                onError={() => setImgError(true)}
+                onLoad={() => setImgLoading(false)}
+            />
+        )}
+        {imgLoading && !imgError && (
+             <div className="absolute inset-0 bg-secondary animate-pulse"></div>
+        )}
         <Button 
           size="icon" 
           variant="ghost" 

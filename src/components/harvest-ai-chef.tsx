@@ -5,10 +5,11 @@ import { useState, useTransition, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { identifyIngredients, IdentifyIngredientsOutput } from '@/ai/flows/identify-ingredients';
 import { suggestRecipes, SuggestRecipesOutput } from '@/ai/flows/suggest-recipes';
+import { findRecipesByName } from '@/ai/flows/find-recipes-by-name';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Trash2, PlusCircle, ChefHat, Heart, Loader2, Check, X, Pencil, Sparkles, Utensils, Sandwich, Soup } from 'lucide-react';
+import { Upload, Trash2, PlusCircle, ChefHat, Heart, Loader2, Check, X, Pencil, Sparkles, Utensils, Soup, Search } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { RecipeCard } from './recipe-card';
@@ -16,7 +17,13 @@ import { AnimatePresence, motion } from 'framer-motion';
 
 type Recipe = SuggestRecipesOutput[0];
 type IdentifiedIngredient = IdentifyIngredientsOutput['ingredients'][0];
-type EditableIngredient = IdentifiedIngredient & { isEditing?: boolean; originalName?: string };
+type EditableIngredient = IdentifiedIngredient & { 
+    isEditingName?: boolean; 
+    originalName?: string;
+    isEditingConfidence?: boolean;
+    originalConfidence?: number;
+};
+
 
 const getConfidenceColor = (confidence: number) => {
   if (confidence > 0.9) return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800/60';
@@ -28,14 +35,26 @@ export function HarvestAiChef() {
   const { toast } = useToast();
   const [isIdentifying, startIdentifying] = useTransition();
   const [isSuggesting, startSuggesting] = useTransition();
+  const [isFinding, startFinding] = useTransition();
+
 
   const [activeTab, setActiveTab] = useState('upload');
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [ingredients, setIngredients] = useState<EditableIngredient[]>([]);
   const [newIngredient, setNewIngredient] = useState('');
+  const [recipeQuery, setRecipeQuery] = useState('');
   const [suggestedRecipesList, setSuggestedRecipesList] = useState<Recipe[]>([]);
   const [savedRecipes, setSavedRecipes] = useLocalStorage<Recipe[]>('saved-recipes', []);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [activeRecipeTab, setActiveRecipeTab] = useState<'suggestions' | 'favorites'>('suggestions');
+
+  useEffect(() => {
+    if (suggestedRecipesList.length > 0) {
+      setActiveRecipeTab('suggestions');
+    } else if (savedRecipes.length > 0) {
+      setActiveRecipeTab('favorites');
+    }
+  }, [suggestedRecipesList, savedRecipes]);
 
   const handleImageUpload = (file: File | null) => {
     if (file) {
@@ -99,26 +118,59 @@ export function HarvestAiChef() {
     }
   };
 
-  const handleEditIngredient = (id: string) => {
-    setIngredients(ingredients.map(ing => ing.id === id ? { ...ing, isEditing: true, originalName: ing.name } : ing));
-  };
-  
-  const handleCancelEdit = (id: string) => {
-    setIngredients(ingredients.map(ing => {
-      if (ing.id === id) {
-        return { ...ing, isEditing: false, name: ing.originalName || ing.name };
-      }
-      return ing;
-    }));
-  };
+    const handleEditIngredientName = (id: string) => {
+        setIngredients(ingredients.map(ing => ing.id === id ? { ...ing, isEditingName: true, originalName: ing.name } : ing));
+    };
 
-  const handleSaveIngredient = (id: string) => {
-    setIngredients(ingredients.map(ing => ing.id === id ? { ...ing, isEditing: false } : ing));
-  };
-  
-  const handleIngredientNameChange = (id: string, newName: string) => {
-    setIngredients(ingredients.map(ing => ing.id === id ? { ...ing, name: newName } : ing));
-  };
+    const handleCancelEditName = (id: string) => {
+        setIngredients(ingredients.map(ing => {
+        if (ing.id === id) {
+            return { ...ing, isEditingName: false, name: ing.originalName || ing.name };
+        }
+        return ing;
+        }));
+    };
+
+    const handleSaveIngredientName = (id: string) => {
+        setIngredients(ingredients.map(ing => ing.id === id ? { ...ing, isEditingName: false } : ing));
+    };
+    
+    const handleIngredientNameChange = (id: string, newName: string) => {
+        setIngredients(ingredients.map(ing => ing.id === id ? { ...ing, name: newName } : ing));
+    };
+
+    const handleEditConfidence = (id: string) => {
+        setIngredients(ingredients.map(ing => ing.id === id ? { ...ing, isEditingConfidence: true, originalConfidence: ing.confidence } : ing));
+    };
+
+    const handleCancelEditConfidence = (id: string) => {
+        setIngredients(ingredients.map(ing => {
+        if (ing.id === id) {
+            return { ...ing, isEditingConfidence: false, confidence: ing.originalConfidence || ing.confidence };
+        }
+        return ing;
+        }));
+    };
+
+    const handleSaveConfidence = (id: string) => {
+        setIngredients(ingredients.map(ing => {
+            if (ing.id === id) {
+              const newConfidence = Math.max(0, Math.min(1, ing.confidence));
+              toast({
+                  title: `Updated confidence for '${ing.name}'`,
+                  description: `Set to ${(newConfidence * 100).toFixed(0)}%`,
+              });
+              return { ...ing, isEditingConfidence: false, confidence: newConfidence };
+            }
+            return ing;
+          }));
+    };
+
+    const handleConfidenceChange = (id: string, newConfidenceStr: string) => {
+        const newConfidence = parseFloat(newConfidenceStr) / 100;
+        setIngredients(ingredients.map(ing => ing.id === id ? { ...ing, confidence: isNaN(newConfidence) ? 0 : newConfidence } : ing));
+    };
+
 
   const handleRemoveIngredient = (id: string) => {
     const removedIngredient = ingredients.find(i => i.id === id);
@@ -129,7 +181,7 @@ export function HarvestAiChef() {
     });
   };
 
-  const handleGetRecipes = () => {
+  const handleGetRecipesByIngredients = () => {
     const acceptedIngredients = ingredients.map(i => i.name);
     if (acceptedIngredients.length === 0) {
       toast({
@@ -155,6 +207,31 @@ export function HarvestAiChef() {
     });
   };
 
+  const handleFindRecipesByName = () => {
+    if (recipeQuery.trim().length === 0) {
+        toast({
+          variant: 'destructive',
+          title: 'No Recipe Name',
+          description: 'Please enter a recipe name to search.',
+        });
+        return;
+      }
+      setActiveTab('recipes');
+      startFinding(async () => {
+        try {
+          const result = await findRecipesByName({ query: recipeQuery });
+          setSuggestedRecipesList(result);
+        } catch (error) {
+          console.error('Error finding recipes:', error);
+          toast({
+            variant: 'destructive',
+            title: 'Error Finding Recipes',
+            description: 'Could not find recipes for your query. Please try again.',
+          });
+        }
+      });
+  }
+
   const toggleFavorite = useCallback((recipe: Recipe) => {
     setSavedRecipes(prev => {
       if (prev.some(r => r.name === recipe.name)) {
@@ -166,6 +243,8 @@ export function HarvestAiChef() {
   }, [setSavedRecipes]);
 
   const isFavorite = useCallback((recipe: Recipe) => savedRecipes.some(r => r.name === recipe.name), [savedRecipes]);
+  
+  const isLoading = isIdentifying || isSuggesting || isFinding;
 
   const renderNavButton = (tabName: string, icon: React.ReactNode, label: string) => (
     <Button
@@ -177,6 +256,8 @@ export function HarvestAiChef() {
       {icon} {label}
     </Button>
   );
+
+  const displayedRecipes = activeRecipeTab === 'suggestions' ? suggestedRecipesList : savedRecipes;
 
   return (
     <div className="min-h-screen bg-background text-foreground font-body flex flex-col">
@@ -207,6 +288,29 @@ export function HarvestAiChef() {
             >
                 {activeTab === 'upload' && (
                   <div className="max-w-2xl mx-auto flex flex-col items-center text-center gap-6">
+                    <div className="w-full space-y-4">
+                        <h2 className="text-2xl font-bold font-headline">Find Recipes by Name</h2>
+                        <div className="flex gap-2">
+                           <Input 
+                               value={recipeQuery}
+                               onChange={(e) => setRecipeQuery(e.target.value)}
+                               placeholder="e.g., Pasta Alfredo"
+                               onKeyDown={(e) => e.key === 'Enter' && handleFindRecipesByName()}
+                               className="bg-background"
+                           />
+                           <Button onClick={handleFindRecipesByName} variant="primary" className="shrink-0" disabled={isLoading}>
+                               {isFinding ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
+                               <span className="hidden sm:inline ml-2">Find Recipes</span>
+                           </Button>
+                        </div>
+                    </div>
+                    
+                    <div className="w-full flex items-center gap-4">
+                        <hr className="flex-grow border-border"/>
+                        <span className="text-muted-foreground font-semibold">OR</span>
+                        <hr className="flex-grow border-border"/>
+                    </div>
+
                     <div 
                       className="w-full h-80 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center bg-secondary/20 relative transition-colors duration-300"
                       onDrop={handleDrop}
@@ -227,10 +331,10 @@ export function HarvestAiChef() {
                         </>
                       )}
                     </div>
-                    <Button size="lg" onClick={() => fileInputRef.current?.click()} className="w-full sm:w-auto" variant="primary" disabled={isIdentifying}>
+                    <Button size="lg" onClick={() => fileInputRef.current?.click()} className="w-full sm:w-auto" variant="outline" disabled={isLoading}>
                       {isIdentifying ? "Analyzing..." : "Choose a Photo"}
                     </Button>
-                    <Input id="file-upload" type="file" accept="image/*" className="hidden" onChange={handleFileChange} disabled={isIdentifying} ref={fileInputRef}/>
+                    <Input id="file-upload" type="file" accept="image/*" className="hidden" onChange={handleFileChange} disabled={isLoading} ref={fileInputRef}/>
                   </div>
                 )}
                 
@@ -268,36 +372,54 @@ export function HarvestAiChef() {
                                  transition={{ duration: 0.3 }}
                                  className="flex items-center gap-2 p-2 rounded-lg bg-secondary/30"
                                >
-                                 {ingredient.isEditing ? (
-                                   <Input
-                                     value={ingredient.name}
-                                     onChange={(e) => handleIngredientNameChange(ingredient.id, e.target.value)}
-                                     className="h-8 flex-grow bg-background"
-                                     autoFocus
-                                     onKeyDown={(e) => e.key === 'Enter' && handleSaveIngredient(ingredient.id)}
-                                   />
-                                 ) : (
-                                   <>
-                                     <span className="flex-grow font-medium capitalize truncate">{ingredient.name}</span>
-                                     <div className={`text-xs font-bold px-2 py-1 rounded-full border ${getConfidenceColor(ingredient.confidence)}`}>
-                                        {(ingredient.confidence * 100).toFixed(0)}%
-                                     </div>
-                                   </>
-                                 )}
- 
+                                {ingredient.isEditingName ? (
+                                    <>
+                                        <Input
+                                            value={ingredient.name}
+                                            onChange={(e) => handleIngredientNameChange(ingredient.id, e.target.value)}
+                                            className="h-8 flex-grow bg-background"
+                                            autoFocus
+                                            onKeyDown={(e) => e.key === 'Enter' && handleSaveIngredientName(ingredient.id)}
+                                        />
+                                        <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600 hover:text-green-600" onClick={() => handleSaveIngredientName(ingredient.id)}><Check className="h-4 w-4" /></Button>
+                                        <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600 hover:text-red-600" onClick={() => handleCancelEditName(ingredient.id)}><X className="h-4 w-4" /></Button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <span className="flex-grow font-medium capitalize truncate">{ingredient.name}</span>
+                                        <div className="flex items-center gap-1">
+                                            {ingredient.isEditingConfidence ? (
+                                                <Input
+                                                    type="number"
+                                                    value={(ingredient.confidence * 100).toFixed(0)}
+                                                    onChange={(e) => handleConfidenceChange(ingredient.id, e.target.value)}
+                                                    className="h-7 w-16 text-center bg-background"
+                                                    autoFocus
+                                                    min="0"
+                                                    max="100"
+                                                    onKeyDown={(e) => e.key === 'Enter' && handleSaveConfidence(ingredient.id)}
+                                                />
+                                            ) : (
+                                                <div className={`text-xs font-bold px-2 py-1 rounded-full border ${getConfidenceColor(ingredient.confidence)}`}>
+                                                    {(ingredient.confidence * 100).toFixed(0)}%
+                                                </div>
+                                            )}
+
+                                            {ingredient.isEditingConfidence ? (
+                                                <>
+                                                <Button size="icon" variant="ghost" className="h-7 w-7 text-green-600" onClick={() => handleSaveConfidence(ingredient.id)}><Check className="h-4 w-4" /></Button>
+                                                <Button size="icon" variant="ghost" className="h-7 w-7 text-red-600" onClick={() => handleCancelEditConfidence(ingredient.id)}><X className="h-4 w-4" /></Button>
+                                                </>
+                                            ) : (
+                                                <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-600" onClick={() => handleEditConfidence(ingredient.id)}><Pencil className="h-3 w-3" /></Button>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
                                  <div className="flex items-center gap-1 ml-auto shrink-0">
-                                   {ingredient.isEditing ? (
+                                   {!ingredient.isEditingName && (
                                      <>
-                                       <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600 hover:text-green-600" onClick={() => handleSaveIngredient(ingredient.id)}>
-                                         <Check className="h-4 w-4" />
-                                       </Button>
-                                       <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600 hover:text-red-600" onClick={() => handleCancelEdit(ingredient.id)}>
-                                         <X className="h-4 w-4" />
-                                       </Button>
-                                     </>
-                                   ) : (
-                                     <>
-                                       <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-600 hover:text-blue-600" onClick={() => handleEditIngredient(ingredient.id)}>
+                                       <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-600 hover:text-blue-600" onClick={() => handleEditIngredientName(ingredient.id)}>
                                          <Pencil className="h-4 w-4" />
                                        </Button>
                                        <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600 hover:text-red-600" onClick={() => handleRemoveIngredient(ingredient.id)}>
@@ -318,7 +440,7 @@ export function HarvestAiChef() {
                          </AnimatePresence>
                      </div>
                      <div className="mt-6 flex justify-end">
-                       <Button onClick={handleGetRecipes} size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90 text-lg py-6 w-full sm:w-auto" disabled={isSuggesting || ingredients.length === 0}>
+                       <Button onClick={handleGetRecipesByIngredients} size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90 text-lg py-6 w-full sm:w-auto" disabled={isLoading || ingredients.length === 0}>
                            {isSuggesting ? (
                                <>
                                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -336,12 +458,12 @@ export function HarvestAiChef() {
                    <div>
                      <div className="flex justify-center mb-6">
                         <div className="bg-card p-1 rounded-full border shadow-sm">
-                            <Button variant={suggestedRecipesList.length > 0 ? "secondary" : "ghost"} onClick={() => setSuggestedRecipesList(suggestedRecipesList)} className="rounded-full" >Suggestions</Button>
-                            <Button variant={savedRecipes.length > 0 && suggestedRecipesList.length === 0 ? "secondary" : "ghost"} onClick={() => setSuggestedRecipesList([])} className="rounded-full">Favorites ({savedRecipes.length})</Button>
+                            <Button variant={activeRecipeTab === 'suggestions' ? 'secondary' : 'ghost'} onClick={() => setActiveRecipeTab('suggestions')} className="rounded-full" disabled={suggestedRecipesList.length === 0}>Suggestions</Button>
+                            <Button variant={activeRecipeTab === 'favorites' ? 'secondary' : 'ghost'} onClick={() => setActiveRecipeTab('favorites')} className="rounded-full" disabled={savedRecipes.length === 0}>Favorites ({savedRecipes.length})</Button>
                         </div>
                      </div>
                      
-                     {isSuggesting ? (
+                     {isLoading ? (
                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {[...Array(3)].map((_, i) => (
                                 <div key={i} className="bg-card rounded-xl shadow-md border p-4 space-y-4">
@@ -356,10 +478,10 @@ export function HarvestAiChef() {
                             ))}
                         </div>
                      ) : (
-                       (suggestedRecipesList.length > 0 || savedRecipes.length > 0) ? (
+                       (displayedRecipes.length > 0) ? (
                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-8">
                              <AnimatePresence>
-                             {(suggestedRecipesList.length > 0 ? suggestedRecipesList : savedRecipes).map((recipe) => (
+                             {displayedRecipes.map((recipe) => (
                                <motion.div
                                  key={recipe.name}
                                  layout

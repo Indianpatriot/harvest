@@ -20,6 +20,7 @@ const RecipeSchema = z.object({
   name: z.string().describe('The name of the recipe.'),
   ingredients: z.array(z.string()).describe('A list of ingredients required for this recipe, taken from the provided list.'),
   instructions: z.array(z.string()).describe('The step-by-step instructions to prepare the recipe.'),
+  imageUrl: z.string().url().describe("A URL for an image of the recipe. This will be a data URI representing a generated image."),
 });
 
 const SuggestRecipesOutputSchema = z.array(RecipeSchema).describe('A list of recipe suggestions based on the identified ingredients.');
@@ -29,13 +30,20 @@ export async function suggestRecipes(input: SuggestRecipesInput): Promise<Sugges
   return suggestRecipesFlow(input);
 }
 
-const prompt = ai.definePrompt({
-  name: 'suggestRecipesPrompt',
-  input: {schema: SuggestRecipesInputSchema},
-  output: {schema: SuggestRecipesOutputSchema},
-  prompt: `You are a sous chef specializing in creating recipes based on a limited set of ingredients.
+const recipeSuggestionPrompt = ai.definePrompt({
+    name: 'recipeSuggestionPrompt',
+    input: {schema: SuggestRecipesInputSchema},
+    output: {schema: z.array(
+        z.object({
+            name: z.string().describe('The name of the recipe.'),
+            ingredients: z.array(z.string()).describe('A list of ingredients required for this recipe, taken from the provided list.'),
+            instructions: z.array(z.string()).describe('The step-by-step instructions to prepare the recipe.'),
+            imagePrompt: z.string().describe("A descriptive prompt for an image generation model to create a photorealistic, appetizing picture of the finished dish. For example: 'A close-up shot of a steaming bowl of homemade chicken noodle soup, with fresh parsley sprinkled on top, on a rustic wooden table.'"),
+        })
+    )},
+    prompt: `You are a sous chef specializing in creating recipes based on a limited set of ingredients.
 
-You will use this information to create a list of recipe suggestions that the user can make. You will only suggest recipes that can be made with the ingredients provided. For each recipe, provide the name, the list of ingredients from the input that are used, and the step-by-step instructions.
+You will use this information to create a list of recipe suggestions that the user can make. You will only suggest recipes that can be made with the ingredients provided. For each recipe, provide the name, the list of ingredients from the input that are used, and the step-by-step instructions. Also provide a detailed, descriptive prompt to generate an image for the recipe.
 
 Ingredients: {{{ingredients}}}
 
@@ -69,7 +77,30 @@ const suggestRecipesFlow = ai.defineFlow(
     outputSchema: SuggestRecipesOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
-    return output!;
+    const {output: recipeIdeas} = await recipeSuggestionPrompt(input);
+    if (!recipeIdeas) {
+        return [];
+    }
+    
+    // Generate an image for each recipe in parallel.
+    const recipesWithImages = await Promise.all(
+        recipeIdeas.map(async (idea) => {
+            const {media} = await ai.generate({
+                model: 'googleai/gemini-2.0-flash-preview-image-generation',
+                prompt: idea.imagePrompt,
+                config: {
+                    responseModalities: ['TEXT', 'IMAGE'],
+                },
+            });
+            return {
+                name: idea.name,
+                ingredients: idea.ingredients,
+                instructions: idea.instructions,
+                imageUrl: media?.url ?? `https://placehold.co/600x400.png`
+            }
+        })
+    );
+
+    return recipesWithImages;
   }
 );
