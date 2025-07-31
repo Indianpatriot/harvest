@@ -18,9 +18,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 type Recipe = SuggestRecipesOutput[0];
 type IdentifiedIngredient = IdentifyIngredientsOutput['ingredients'][0];
 type EditableIngredient = IdentifiedIngredient & { 
-    isEditingName?: boolean; 
+    isEditing?: boolean;
     originalName?: string;
-    isEditingConfidence?: boolean;
     originalConfidence?: number;
 };
 
@@ -118,58 +117,47 @@ export function HarvestAiChef() {
     }
   };
 
-    const handleEditIngredientName = (id: string) => {
-        setIngredients(ingredients.map(ing => ing.id === id ? { ...ing, isEditingName: true, originalName: ing.name } : ing));
-    };
+  const handleEditIngredient = (id: string) => {
+    setIngredients(ingredients.map(ing => 
+      ing.id === id ? { ...ing, isEditing: true, originalName: ing.name, originalConfidence: ing.confidence } : ing
+    ));
+  };
 
-    const handleCancelEditName = (id: string) => {
-        setIngredients(ingredients.map(ing => {
+  const handleCancelEdit = (id: string) => {
+    setIngredients(ingredients.map(ing => {
+      if (ing.id === id) {
+        return { 
+          ...ing, 
+          isEditing: false, 
+          name: ing.originalName || ing.name, 
+          confidence: ing.originalConfidence || ing.confidence 
+        };
+      }
+      return ing;
+    }));
+  };
+
+  const handleSaveIngredient = (id: string) => {
+    setIngredients(ingredients.map(ing => {
         if (ing.id === id) {
-            return { ...ing, isEditingName: false, name: ing.originalName || ing.name };
+          const newConfidence = Math.max(0, Math.min(1, ing.confidence));
+          toast({
+              title: `Updated '${ing.name}'`,
+          });
+          return { ...ing, isEditing: false, confidence: newConfidence };
         }
         return ing;
-        }));
-    };
+      }));
+  };
+  
+  const handleIngredientNameChange = (id: string, newName: string) => {
+      setIngredients(ingredients.map(ing => ing.id === id ? { ...ing, name: newName } : ing));
+  };
 
-    const handleSaveIngredientName = (id: string) => {
-        setIngredients(ingredients.map(ing => ing.id === id ? { ...ing, isEditingName: false } : ing));
-    };
-    
-    const handleIngredientNameChange = (id: string, newName: string) => {
-        setIngredients(ingredients.map(ing => ing.id === id ? { ...ing, name: newName } : ing));
-    };
-
-    const handleEditConfidence = (id: string) => {
-        setIngredients(ingredients.map(ing => ing.id === id ? { ...ing, isEditingConfidence: true, originalConfidence: ing.confidence } : ing));
-    };
-
-    const handleCancelEditConfidence = (id: string) => {
-        setIngredients(ingredients.map(ing => {
-        if (ing.id === id) {
-            return { ...ing, isEditingConfidence: false, confidence: ing.originalConfidence || ing.confidence };
-        }
-        return ing;
-        }));
-    };
-
-    const handleSaveConfidence = (id: string) => {
-        setIngredients(ingredients.map(ing => {
-            if (ing.id === id) {
-              const newConfidence = Math.max(0, Math.min(1, ing.confidence));
-              toast({
-                  title: `Updated confidence for '${ing.name}'`,
-                  description: `Set to ${(newConfidence * 100).toFixed(0)}%`,
-              });
-              return { ...ing, isEditingConfidence: false, confidence: newConfidence };
-            }
-            return ing;
-          }));
-    };
-
-    const handleConfidenceChange = (id: string, newConfidenceStr: string) => {
-        const newConfidence = parseFloat(newConfidenceStr) / 100;
-        setIngredients(ingredients.map(ing => ing.id === id ? { ...ing, confidence: isNaN(newConfidence) ? 0 : newConfidence } : ing));
-    };
+  const handleConfidenceChange = (id: string, newConfidenceStr: string) => {
+      const newConfidence = parseFloat(newConfidenceStr) / 100;
+      setIngredients(ingredients.map(ing => ing.id === id ? { ...ing, confidence: isNaN(newConfidence) ? 0 : newConfidence } : ing));
+  };
 
 
   const handleRemoveIngredient = (id: string) => {
@@ -386,62 +374,50 @@ export function HarvestAiChef() {
                                  transition={{ duration: 0.3 }}
                                  className="flex items-center gap-2 p-2 rounded-lg bg-secondary/30"
                                >
-                                {ingredient.isEditingName ? (
+                                {ingredient.isEditing ? (
                                     <>
-                                        <Input
-                                            value={ingredient.name}
-                                            onChange={(e) => handleIngredientNameChange(ingredient.id, e.target.value)}
-                                            className="h-8 flex-grow bg-background"
-                                            autoFocus
-                                            onKeyDown={(e) => e.key === 'Enter' && handleSaveIngredientName(ingredient.id)}
-                                        />
-                                        <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600 hover:text-green-600" onClick={() => handleSaveIngredientName(ingredient.id)}><Check className="h-4 w-4" /></Button>
-                                        <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600 hover:text-red-600" onClick={() => handleCancelEditName(ingredient.id)}><X className="h-4 w-4" /></Button>
-                                    </>
-                                ) : (
-                                    <>
-                                        <span className="flex-grow font-medium capitalize truncate">{ingredient.name}</span>
-                                        <div className="flex items-center gap-1">
-                                            {ingredient.isEditingConfidence ? (
+                                        <div className="flex-grow space-y-2">
+                                            <Input
+                                                value={ingredient.name}
+                                                onChange={(e) => handleIngredientNameChange(ingredient.id, e.target.value)}
+                                                className="h-8 w-full bg-background"
+                                                autoFocus
+                                                onKeyDown={(e) => e.key === 'Enter' && handleSaveIngredient(ingredient.id)}
+                                            />
+                                            <div className="flex items-center gap-2">
                                                 <Input
                                                     type="number"
                                                     value={(ingredient.confidence * 100).toFixed(0)}
                                                     onChange={(e) => handleConfidenceChange(ingredient.id, e.target.value)}
-                                                    className="h-7 w-16 text-center bg-background"
-                                                    autoFocus
+                                                    className="h-8 w-16 text-center bg-background"
                                                     min="0"
                                                     max="100"
-                                                    onKeyDown={(e) => e.key === 'Enter' && handleSaveConfidence(ingredient.id)}
+                                                    onKeyDown={(e) => e.key === 'Enter' && handleSaveIngredient(ingredient.id)}
                                                 />
-                                            ) : (
-                                                <div className={`text-xs font-bold px-2 py-1 rounded-full border ${getConfidenceColor(ingredient.confidence)}`}>
-                                                    {(ingredient.confidence * 100).toFixed(0)}%
-                                                </div>
-                                            )}
-
-                                            {ingredient.isEditingConfidence ? (
-                                                <>
-                                                <Button size="icon" variant="ghost" className="h-7 w-7 text-green-600" onClick={() => handleSaveConfidence(ingredient.id)}><Check className="h-4 w-4" /></Button>
-                                                <Button size="icon" variant="ghost" className="h-7 w-7 text-red-600" onClick={() => handleCancelEditConfidence(ingredient.id)}><X className="h-4 w-4" /></Button>
-                                                </>
-                                            ) : (
-                                                <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-600" onClick={() => handleEditConfidence(ingredient.id)}><Pencil className="h-3 w-3" /></Button>
-                                            )}
+                                                <span className="text-sm text-muted-foreground">% Confidence</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col gap-1">
+                                            <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600 hover:text-green-600" onClick={() => handleSaveIngredient(ingredient.id)}><Check className="h-4 w-4" /></Button>
+                                            <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600 hover:text-red-600" onClick={() => handleCancelEdit(ingredient.id)}><X className="h-4 w-4" /></Button>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <span className="flex-grow font-medium capitalize truncate">{ingredient.name}</span>
+                                        <div className={`text-xs font-bold px-2 py-1 rounded-full border ${getConfidenceColor(ingredient.confidence)}`}>
+                                            {(ingredient.confidence * 100).toFixed(0)}%
+                                        </div>
+                                        <div className="flex items-center gap-1 ml-auto shrink-0">
+                                            <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-600 hover:text-blue-600" onClick={() => handleEditIngredient(ingredient.id)}>
+                                                <Pencil className="h-4 w-4" />
+                                            </Button>
+                                            <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600 hover:text-red-600" onClick={() => handleRemoveIngredient(ingredient.id)}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
                                         </div>
                                     </>
                                 )}
-                                 <div className="flex items-center gap-1 ml-auto shrink-0">
-                                   {!ingredient.isEditingName && (
-                                     <>
-                                       <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-600 hover:text-blue-600" onClick={() => handleEditIngredientName(ingredient.id)}>
-                                         <Pencil className="h-4 w-4" />
-                                       </Button>
-                                       <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600 hover:text-red-600" onClick={() => handleRemoveIngredient(ingredient.id)}>
-                                         <Trash2 className="h-4 w-4" />
-                                       </Button>
-                                     </>
-                                   )}
-                                 </div>
                                </motion.li>
                              ))}
                            </ul>
