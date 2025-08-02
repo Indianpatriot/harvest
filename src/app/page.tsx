@@ -1,5 +1,5 @@
-import { HarvestAiChef } from '@/components/harvest-ai-chef';
+import { HarvestAiChefShell } from '@/components/harvest-ai-chef-shell';
 
 export default function Home() {
-  return <HarvestAiChef />;
+  return <HarvestAiChefShell />;
 }
