@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -83,8 +84,8 @@ const suggestRecipesFlow = ai.defineFlow(
         recipeIdeas = output;
     } catch (error) {
         console.error("Error suggesting recipe ideas:", error);
-        // Re-throw the error to be caught by the client-side handler which shows a toast
-        throw new Error("Failed to generate recipe ideas from the AI service.");
+        // Instead of throwing an error, return an empty array to gracefully handle the failure.
+        return [];
     }
 
     if (!recipeIdeas) {
