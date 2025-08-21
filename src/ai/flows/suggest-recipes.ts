@@ -77,7 +77,16 @@ const suggestRecipesFlow = ai.defineFlow(
     outputSchema: SuggestRecipesOutputSchema,
   },
   async input => {
-    const {output: recipeIdeas} = await recipeSuggestionPrompt(input);
+    let recipeIdeas;
+    try {
+        const {output} = await recipeSuggestionPrompt(input);
+        recipeIdeas = output;
+    } catch (error) {
+        console.error("Error suggesting recipe ideas:", error);
+        // Re-throw the error to be caught by the client-side handler which shows a toast
+        throw new Error("Failed to generate recipe ideas from the AI service.");
+    }
+
     if (!recipeIdeas) {
         return [];
     }
@@ -85,18 +94,29 @@ const suggestRecipesFlow = ai.defineFlow(
     // Generate an image for each recipe in parallel.
     const recipesWithImages = await Promise.all(
         recipeIdeas.map(async (idea) => {
-            const {media} = await ai.generate({
-                model: 'googleai/gemini-2.0-flash-preview-image-generation',
-                prompt: idea.imagePrompt,
-                config: {
-                    responseModalities: ['TEXT', 'IMAGE'],
-                },
-            });
-            return {
-                name: idea.name,
-                ingredients: idea.ingredients,
-                instructions: idea.instructions,
-                imageUrl: media?.url ?? `https://placehold.co/600x400.png`
+            try {
+                const {media} = await ai.generate({
+                    model: 'googleai/gemini-2.0-flash-preview-image-generation',
+                    prompt: idea.imagePrompt,
+                    config: {
+                        responseModalities: ['TEXT', 'IMAGE'],
+                    },
+                });
+                return {
+                    name: idea.name,
+                    ingredients: idea.ingredients,
+                    instructions: idea.instructions,
+                    imageUrl: media?.url ?? `https://placehold.co/600x400.png`
+                }
+            } catch (error) {
+                console.error(`Error generating image for recipe "${idea.name}":`, error);
+                // Fallback to a placeholder if image generation fails
+                return {
+                    name: idea.name,
+                    ingredients: idea.ingredients,
+                    instructions: idea.instructions,
+                    imageUrl: `https://placehold.co/600x400.png`
+                }
             }
         })
     );
