@@ -120,7 +120,7 @@ export function RecipeCard({ recipe, isFavorite, onToggleFavorite }: RecipeCardP
         </div>
 
         <Accordion type="single" collapsible className="w-full flex-grow">
-            <AccordionItem value="instructions">
+            <AccordionItem value="details" className="border-b-0">
                 <AccordionTrigger className="text-sm font-semibold hover:no-underline py-2">
                   <div className="flex items-center gap-2">
                     <BookOpen className="w-4 h-4"/>
@@ -141,46 +141,45 @@ export function RecipeCard({ recipe, isFavorite, onToggleFavorite }: RecipeCardP
                             {recipe.instructions.map((step, i) => <li key={i}>{step}</li>)}
                         </ol>
                     </div>
-                    <div className="pt-4">
-                        <Button onClick={handleGetAnalysis} disabled={isAnalyzing} className="w-full">
+                    <div className="pt-2 border-t border-border">
+                        <Button onClick={handleGetAnalysis} disabled={isAnalyzing} variant="link" className="p-0 h-auto text-primary">
                             {isAnalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
                             {isAnalyzing ? "Analyzing..." : (analysis ? "Hide Nutritional Analysis" : "View Nutritional Analysis")}
                         </Button>
                     </div>
+                    <AnimatePresence>
+                    {analysis && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="overflow-hidden"
+                      >
+                          <Card className="mt-2 border-accent/50 bg-secondary/30">
+                            <CardHeader className="p-4">
+                              <CardTitle className="text-md font-headline">Nutritional Analysis</CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-4 pt-0">
+                              <ul className="space-y-1 text-sm">
+                                  <li className="flex justify-between"><strong>Serving Size:</strong> <span>{analysis.servingSize}</span></li>
+                                  <li className="flex justify-between"><strong>Calories:</strong> <span>{analysis.calories}</span></li>
+                                  <li className="flex justify-between"><strong>Protein:</strong> <span>{analysis.protein}</span></li>
+                                  <li className="flex justify-between"><strong>Fat:</strong> <span>{analysis.fat}</span></li>
+                                  <li className="flex justify-between"><strong>Carbs:</strong> <span>{analysis.carbohydrates}</span></li>
+                                  <li className="flex justify-between"><strong>Fiber:</strong> <span>{analysis.fiber}</span></li>
+                                  <li className="flex justify-between"><strong>Sugar:</strong> <span>{analysis.sugar}</span></li>
+                              </ul>
+                              <p className="text-xs text-muted-foreground mt-3 italic">{analysis.disclaimer}</p>
+                            </CardContent>
+                          </Card>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                   </div>
                 </AccordionContent>
             </AccordionItem>
         </Accordion>
-        
-        <AnimatePresence>
-        {analysis && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.3 }}
-            className="overflow-hidden"
-          >
-              <Card className="mt-4 border-accent">
-                <CardHeader>
-                  <CardTitle className="text-lg font-headline">Nutritional Analysis</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2 text-sm">
-                      <li className="flex justify-between"><strong>Serving Size:</strong> <span>{analysis.servingSize}</span></li>
-                      <li className="flex justify-between"><strong>Calories:</strong> <span>{analysis.calories}</span></li>
-                      <li className="flex justify-between"><strong>Protein:</strong> <span>{analysis.protein}</span></li>
-                      <li className="flex justify-between"><strong>Fat:</strong> <span>{analysis.fat}</span></li>
-                      <li className="flex justify-between"><strong>Carbs:</strong> <span>{analysis.carbohydrates}</span></li>
-                      <li className="flex justify-between"><strong>Fiber:</strong> <span>{analysis.fiber}</span></li>
-                      <li className="flex justify-between"><strong>Sugar:</strong> <span>{analysis.sugar}</span></li>
-                  </ul>
-                  <p className="text-xs text-muted-foreground mt-4 italic">{analysis.disclaimer}</p>
-                </CardContent>
-              </Card>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       </div>
     </div>
