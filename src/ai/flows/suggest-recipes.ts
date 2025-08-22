@@ -22,6 +22,8 @@ const RecipeSchema = z.object({
   ingredients: z.array(z.string()).describe('A list of ingredients required for this recipe, taken from the provided list.'),
   instructions: z.array(z.string()).describe('The step-by-step instructions to prepare the recipe.'),
   imageUrl: z.string().url().describe("A URL for an image of the recipe. This will be a data URI representing a generated image."),
+  estimatedCookingTime: z.string().describe('The estimated time to prepare and cook the recipe (e.g., "30-45 minutes").'),
+  dietaryCategory: z.enum(['Vegetarian', 'Eggetarian', 'Non-Vegetarian']).describe('The dietary category of the recipe.'),
 });
 
 const SuggestRecipesOutputSchema = z.array(RecipeSchema).describe('A list of recipe suggestions based on the identified ingredients.');
@@ -39,12 +41,14 @@ const recipeSuggestionPrompt = ai.definePrompt({
             name: z.string().describe('The name of the recipe.'),
             ingredients: z.array(z.string()).describe('A list of ingredients required for this recipe, taken from the provided list.'),
             instructions: z.array(z.string()).describe('The step-by-step instructions to prepare the recipe.'),
+            estimatedCookingTime: z.string().describe('The estimated time to prepare and cook the recipe (e.g., "30-45 minutes").'),
+            dietaryCategory: z.enum(['Vegetarian', 'Eggetarian', 'Non-Vegetarian']).describe('The dietary category of the recipe. Determine this based on the ingredients.'),
             imagePrompt: z.string().describe("A descriptive prompt for an image generation model to create a photorealistic, appetizing picture of the finished dish. For example: 'A close-up shot of a steaming bowl of homemade chicken noodle soup, with fresh parsley sprinkled on top, on a rustic wooden table.'"),
         })
     )},
     prompt: `You are a sous chef specializing in creating recipes based on a limited set of ingredients.
 
-You will use this information to create a list of recipe suggestions that the user can make. You will only suggest recipes that can be made with the ingredients provided. For each recipe, provide the name, the list of ingredients from the input that are used, and the step-by-step instructions. Also provide a detailed, descriptive prompt to generate an image for the recipe.
+You will use this information to create a list of recipe suggestions that the user can make. You will only suggest recipes that can be made with the ingredients provided. For each recipe, provide the name, the list of ingredients from the input that are used, the step-by-step instructions, the estimated cooking time, the dietary category ('Vegetarian', 'Eggetarian', 'Non-Vegetarian'), and a detailed, descriptive prompt to generate an image for the recipe.
 
 Ingredients: {{{ingredients}}}
 
@@ -107,6 +111,8 @@ const suggestRecipesFlow = ai.defineFlow(
                     name: idea.name,
                     ingredients: idea.ingredients,
                     instructions: idea.instructions,
+                    estimatedCookingTime: idea.estimatedCookingTime,
+                    dietaryCategory: idea.dietaryCategory,
                     imageUrl: media?.url ?? `https://placehold.co/600x400.png`
                 }
             } catch (error) {
@@ -116,6 +122,8 @@ const suggestRecipesFlow = ai.defineFlow(
                     name: idea.name,
                     ingredients: idea.ingredients,
                     instructions: idea.instructions,
+                    estimatedCookingTime: idea.estimatedCookingTime,
+                    dietaryCategory: idea.dietaryCategory,
                     imageUrl: `https://placehold.co/600x400.png`
                 }
             }

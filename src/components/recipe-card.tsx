@@ -4,7 +4,7 @@
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Button } from './ui/button';
-import { Heart, ChevronDown, ImageOff } from 'lucide-react';
+import { Heart, ImageOff, Clock, Leaf, Egg, Beef } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 import type { SuggestRecipesOutput } from '@/ai/flows/suggest-recipes';
@@ -18,6 +18,20 @@ interface RecipeCardProps {
   isFavorite: boolean;
   onToggleFavorite: (recipe: Recipe) => void;
 }
+
+const DietIndicator = ({ category }: { category: Recipe['dietaryCategory']}) => {
+    const commonClass = "w-4 h-4 mr-1.5";
+    switch (category) {
+        case 'Vegetarian':
+            return <Leaf className={cn("text-green-600", commonClass)} />;
+        case 'Eggetarian':
+            return <Egg className={cn("text-amber-600", commonClass)} />;
+        case 'Non-Vegetarian':
+            return <Beef className={cn("text-red-600", commonClass)} />;
+        default:
+            return null;
+    }
+};
 
 export function RecipeCard({ recipe, isFavorite, onToggleFavorite }: RecipeCardProps) {
   const [imgError, setImgError] = useState(false);
@@ -62,9 +76,20 @@ export function RecipeCard({ recipe, isFavorite, onToggleFavorite }: RecipeCardP
       </div>
 
       <div className="p-4 flex flex-col flex-grow">
-        <h3 className="text-xl font-bold font-headline mb-2 flex-grow">{recipe.name}</h3>
+        <h3 className="text-xl font-bold font-headline mb-2">{recipe.name}</h3>
         
-        <Accordion type="single" collapsible className="w-full">
+        <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
+            <div className="flex items-center">
+                <Clock className="w-4 h-4 mr-1.5" />
+                <span>{recipe.estimatedCookingTime}</span>
+            </div>
+             <div className="flex items-center">
+                <DietIndicator category={recipe.dietaryCategory} />
+                <span>{recipe.dietaryCategory}</span>
+            </div>
+        </div>
+
+        <Accordion type="single" collapsible className="w-full flex-grow">
             <AccordionItem value="ingredients" className="border-b-0">
                 <AccordionTrigger className="text-sm font-semibold hover:no-underline py-2">
                   <div className="flex items-center gap-2">
@@ -74,6 +99,10 @@ export function RecipeCard({ recipe, isFavorite, onToggleFavorite }: RecipeCardP
                 <AccordionContent className="pt-2">
                   <div className="space-y-4">
                     <div>
+                        <h4 className="font-semibold text-sm mb-2 flex items-center">
+                           <Clock className="w-4 h-4 mr-1.5 text-muted-foreground"/>
+                           Time: <span className="font-normal ml-1">{recipe.estimatedCookingTime}</span>
+                        </h4>
                         <h4 className="font-semibold text-sm mb-2">Ingredients:</h4>
                         <div className="flex flex-wrap gap-2">
                             {recipe.ingredients.map(ing => <Badge variant="secondary" key={ing}>{ing}</Badge>)}

@@ -5,7 +5,7 @@ import { useState, useTransition, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { identifyIngredients, IdentifyIngredientsOutput } from '@/ai/flows/identify-ingredients';
 import { suggestRecipes, SuggestRecipesOutput } from '@/ai/flows/suggest-recipes';
-import { findRecipesByName } from '@/ai/flows/find-recipes-by-name';
+import { findRecipesByName, FindRecipesByNameOutput } from '@/ai/flows/find-recipes-by-name';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -211,7 +211,7 @@ export function HarvestAiChef({
       }
       startFinding(async () => {
         try {
-          const result = await findRecipesByName({ query: recipeQuery });
+          const result: FindRecipesByNameOutput = await findRecipesByName({ query: recipeQuery });
           setSuggestedRecipesList(result);
           
           const allIngredients = new Set<string>();
