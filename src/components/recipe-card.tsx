@@ -41,13 +41,11 @@ export function RecipeCard({ recipe, isFavorite, onToggleFavorite }: RecipeCardP
   const [imgLoading, setImgLoading] = useState(true);
   const [isAnalyzing, startAnalyzing] = useTransition();
   const [analysis, setAnalysis] = useState<GetNutritionalAnalysisOutput | null>(null);
-  const [accordionValue, setAccordionValue] = useState<string | undefined>();
   const { toast } = useToast();
 
   const handleGetAnalysis = async () => {
     if (analysis) {
-        // If analysis is already present, just toggle the accordion
-        setAccordionValue(accordionValue === "nutrition" ? undefined : "nutrition");
+        setAnalysis(null);
         return;
     }
     startAnalyzing(async () => {
@@ -57,7 +55,6 @@ export function RecipeCard({ recipe, isFavorite, onToggleFavorite }: RecipeCardP
                 ingredients: recipe.ingredients,
             });
             setAnalysis(result);
-            setAccordionValue("nutrition"); // Open the accordion to show the result
         } catch (error) {
             console.error("Error getting nutritional analysis:", error);
             toast({
