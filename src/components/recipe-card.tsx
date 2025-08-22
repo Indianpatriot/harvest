@@ -2,7 +2,7 @@
 'use client';
 
 import Image from 'next/image';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from './ui/button';
 import { Heart, ImageOff, Clock, Leaf, Egg, Beef, Loader2, BookOpen } from 'lucide-react';
 import { Badge } from './ui/badge';
