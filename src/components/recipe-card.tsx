@@ -4,12 +4,15 @@
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Button } from './ui/button';
-import { Heart, ImageOff, Clock, Leaf, Egg, Beef } from 'lucide-react';
+import { Heart, ImageOff, Clock, Leaf, Egg, Beef, Loader2, BookOpen } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 import type { SuggestRecipesOutput } from '@/ai/flows/suggest-recipes';
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { cn } from '@/lib/utils';
+import { getNutritionalAnalysis, GetNutritionalAnalysisOutput } from '@/ai/flows/get-nutritional-analysis';
+import { useToast } from '@/hooks/use-toast';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 
 type Recipe = SuggestRecipesOutput[0];
 
@@ -36,6 +39,36 @@ const DietIndicator = ({ category }: { category: Recipe['dietaryCategory']}) => 
 export function RecipeCard({ recipe, isFavorite, onToggleFavorite }: RecipeCardProps) {
   const [imgError, setImgError] = useState(false);
   const [imgLoading, setImgLoading] = useState(true);
+  const [isAnalyzing, startAnalyzing] = useTransition();
+  const [analysis, setAnalysis] = useState<GetNutritionalAnalysisOutput | null>(null);
+  const [accordionValue, setAccordionValue] = useState<string | undefined>();
+  const { toast } = useToast();
+
+  const handleGetAnalysis = async () => {
+    if (analysis) {
+        // If analysis is already present, just toggle the accordion
+        setAccordionValue(accordionValue === "nutrition" ? undefined : "nutrition");
+        return;
+    }
+    startAnalyzing(async () => {
+        try {
+            const result = await getNutritionalAnalysis({
+                recipeName: recipe.name,
+                ingredients: recipe.ingredients,
+            });
+            setAnalysis(result);
+            setAccordionValue("nutrition"); // Open the accordion to show the result
+        } catch (error) {
+            console.error("Error getting nutritional analysis:", error);
+            toast({
+                variant: 'destructive',
+                title: 'Analysis Failed',
+                description: 'Could not fetch nutritional analysis at this time.',
+            });
+        }
+    });
+  }
+
 
   return (
     <div className="bg-card rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 border border-border/60 overflow-hidden flex flex-col h-full">
@@ -90,19 +123,16 @@ export function RecipeCard({ recipe, isFavorite, onToggleFavorite }: RecipeCardP
         </div>
 
         <Accordion type="single" collapsible className="w-full flex-grow">
-            <AccordionItem value="ingredients" className="border-b-0">
+            <AccordionItem value="instructions">
                 <AccordionTrigger className="text-sm font-semibold hover:no-underline py-2">
                   <div className="flex items-center gap-2">
-                    <span>View Ingredients & Instructions</span>
+                    <BookOpen className="w-4 h-4"/>
+                    <span>View Recipe Details</span>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="pt-2">
                   <div className="space-y-4">
                     <div>
-                        <h4 className="font-semibold text-sm mb-2 flex items-center">
-                           <Clock className="w-4 h-4 mr-1.5 text-muted-foreground"/>
-                           Time: <span className="font-normal ml-1">{recipe.estimatedCookingTime}</span>
-                        </h4>
                         <h4 className="font-semibold text-sm mb-2">Ingredients:</h4>
                         <div className="flex flex-wrap gap-2">
                             {recipe.ingredients.map(ing => <Badge variant="secondary" key={ing}>{ing}</Badge>)}
@@ -114,10 +144,47 @@ export function RecipeCard({ recipe, isFavorite, onToggleFavorite }: RecipeCardP
                             {recipe.instructions.map((step, i) => <li key={i}>{step}</li>)}
                         </ol>
                     </div>
+                    <div className="pt-4">
+                        <Button onClick={handleGetAnalysis} disabled={isAnalyzing} className="w-full">
+                            {isAnalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                            {isAnalyzing ? "Analyzing..." : (analysis ? "Hide Nutritional Analysis" : "View Nutritional Analysis")}
+                        </Button>
+                    </div>
                   </div>
                 </AccordionContent>
             </AccordionItem>
         </Accordion>
+        
+        <AnimatePresence>
+        {analysis && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3 }}
+            className="overflow-hidden"
+          >
+              <Card className="mt-4 border-accent">
+                <CardHeader>
+                  <CardTitle className="text-lg font-headline">Nutritional Analysis</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2 text-sm">
+                      <li className="flex justify-between"><strong>Serving Size:</strong> <span>{analysis.servingSize}</span></li>
+                      <li className="flex justify-between"><strong>Calories:</strong> <span>{analysis.calories}</span></li>
+                      <li className="flex justify-between"><strong>Protein:</strong> <span>{analysis.protein}</span></li>
+                      <li className="flex justify-between"><strong>Fat:</strong> <span>{analysis.fat}</span></li>
+                      <li className="flex justify-between"><strong>Carbs:</strong> <span>{analysis.carbohydrates}</span></li>
+                      <li className="flex justify-between"><strong>Fiber:</strong> <span>{analysis.fiber}</span></li>
+                      <li className="flex justify-between"><strong>Sugar:</strong> <span>{analysis.sugar}</span></li>
+                  </ul>
+                  <p className="text-xs text-muted-foreground mt-4 italic">{analysis.disclaimer}</p>
+                </CardContent>
+              </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       </div>
     </div>
   );
