@@ -25,7 +25,7 @@ export function HarvestAiChefShell() {
 
   return (
     <div className="min-h-screen bg-background text-foreground font-body flex flex-col">
-      <header className="py-6 px-4 text-center border-b border-border/60 sticky top-0 bg-background/80 backdrop-blur-sm z-20">
+      <header className="py-6 px-4 text-center border-b border-border/60 bg-background/80 backdrop-blur-sm z-20">
         <div className="container mx-auto flex items-center justify-between">
             <div className="flex-1"></div>
             <div className="flex-1 flex flex-col items-center">
@@ -41,7 +41,7 @@ export function HarvestAiChefShell() {
         </div>
       </header>
       
-      <div className="border-b border-border/60 shadow-sm sticky top-[121px] md:top-[129px] bg-background/80 backdrop-blur-sm z-20">
+      <div className="border-b border-border/60 shadow-sm bg-background/80 backdrop-blur-sm z-20">
         <nav className="container mx-auto px-4 flex justify-center items-center gap-2 py-2">
             {renderNavButton('upload', <Upload size={18}/>, 'Upload')}
             {renderNavButton('ingredients', <Sparkles size={18}/>, 'Ingredients')}
