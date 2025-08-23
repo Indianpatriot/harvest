@@ -4,7 +4,7 @@
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from './ui/button';
-import { Heart, ImageOff, Clock, Leaf, Egg, Beef, Loader2, BookOpen, ChevronDown } from 'lucide-react';
+import { Heart, ImageOff, Clock, Leaf, Egg, Beef, Loader2, BookOpen, ChevronDown, BarChart } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 import type { SuggestRecipesOutput } from '@/ai/flows/suggest-recipes';
@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { getNutritionalAnalysis, GetNutritionalAnalysisOutput } from '@/ai/flows/get-nutritional-analysis';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Progress } from './ui/progress';
 
 type Recipe = SuggestRecipesOutput[0];
 
@@ -22,18 +23,25 @@ interface RecipeCardProps {
   onToggleFavorite: (recipe: Recipe) => void;
 }
 
-const DietIndicator = ({ category }: { category: Recipe['dietaryCategory']}) => {
+const DietIndicator = ({ category, withText = false }: { category: Recipe['dietaryCategory'], withText?: boolean}) => {
     const commonClass = "w-4 h-4 mr-1.5";
-    switch (category) {
-        case 'Vegetarian':
-            return <Leaf className={cn("text-green-600", commonClass)} />;
-        case 'Eggetarian':
-            return <Egg className={cn("text-amber-600", commonClass)} />;
-        case 'Non-Vegetarian':
-            return <Beef className={cn("text-red-600", commonClass)} />;
-        default:
-            return null;
+    const dietInfo = {
+        'Vegetarian': { icon: <Leaf className={cn("text-green-500", commonClass)} />, color: 'text-green-500 bg-green-500/10 border-green-500/20'},
+        'Eggetarian': { icon: <Egg className={cn("text-amber-500", commonClass)} />, color: 'text-amber-500 bg-amber-500/10 border-amber-500/20'},
+        'Non-Vegetarian': { icon: <Beef className={cn("text-red-500", commonClass)} />, color: 'text-red-500 bg-red-500/10 border-red-500/20'},
     }
+    const info = dietInfo[category];
+    if (!info) return null;
+
+    if (withText) {
+        return (
+            <Badge variant="outline" className={cn("capitalize", info.color)}>
+                {info.icon}
+                {category}
+            </Badge>
+        );
+    }
+    return info.icon;
 };
 
 export function RecipeCard({ recipe, isFavorite, onToggleFavorite }: RecipeCardProps) {
@@ -66,6 +74,8 @@ export function RecipeCard({ recipe, isFavorite, onToggleFavorite }: RecipeCardP
     });
   }
 
+  const parseValue = (value: string) => parseFloat(value.replace(/[^0-9.]/g, ''));
+  const getProgress = (value: string, max: number) => (parseValue(value) / max) * 100;
 
   return (
     <div className="bg-card rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 border border-border/60 overflow-hidden flex flex-col h-full group">
@@ -108,15 +118,12 @@ export function RecipeCard({ recipe, isFavorite, onToggleFavorite }: RecipeCardP
       <div className="p-4 flex flex-col flex-grow">
         <h3 className="text-xl font-bold font-headline mb-2">{recipe.name}</h3>
         
-        <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
-            <div className="flex items-center">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
+            <Badge variant="outline">
                 <Clock className="w-4 h-4 mr-1.5" />
-                <span>{recipe.estimatedCookingTime}</span>
-            </div>
-             <div className="flex items-center">
-                <DietIndicator category={recipe.dietaryCategory} />
-                <span>{recipe.dietaryCategory}</span>
-            </div>
+                {recipe.estimatedCookingTime}
+            </Badge>
+            <DietIndicator category={recipe.dietaryCategory} withText />
         </div>
 
         <Accordion type="single" collapsible className="w-full flex-grow">
@@ -144,7 +151,7 @@ export function RecipeCard({ recipe, isFavorite, onToggleFavorite }: RecipeCardP
                     </div>
                     <div className="pt-2 border-t border-border">
                         <Button onClick={handleGetAnalysis} disabled={isAnalyzing} variant="link" className="p-0 h-auto text-primary">
-                            {isAnalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                            {isAnalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <BarChart className="mr-2 h-4 w-4"/>}
                             {isAnalyzing ? "Analyzing..." : (analysis ? "Hide Nutritional Analysis" : "View Nutritional Analysis")}
                         </Button>
                     </div>
@@ -159,17 +166,26 @@ export function RecipeCard({ recipe, isFavorite, onToggleFavorite }: RecipeCardP
                       >
                           <Card className="mt-2 border-accent/50 bg-secondary/30">
                             <CardHeader className="p-4">
-                              <CardTitle className="text-md font-headline">Nutritional Analysis</CardTitle>
+                              <CardTitle className="text-md font-headline">Nutritional Analysis (per {analysis.servingSize})</CardTitle>
                             </CardHeader>
                             <CardContent className="p-4 pt-0">
-                              <ul className="space-y-1 text-sm">
-                                  <li className="flex justify-between"><strong>Serving Size:</strong> <span>{analysis.servingSize}</span></li>
-                                  <li className="flex justify-between"><strong>Calories:</strong> <span>{analysis.calories}</span></li>
-                                  <li className="flex justify-between"><strong>Protein:</strong> <span>{analysis.protein}</span></li>
-                                  <li className="flex justify-between"><strong>Fat:</strong> <span>{analysis.fat}</span></li>
-                                  <li className="flex justify-between"><strong>Carbs:</strong> <span>{analysis.carbohydrates}</span></li>
-                                  <li className="flex justify-between"><strong>Fiber:</strong> <span>{analysis.fiber}</span></li>
-                                  <li className="flex justify-between"><strong>Sugar:</strong> <span>{analysis.sugar}</span></li>
+                              <ul className="space-y-3 text-sm">
+                                  <li className="space-y-1">
+                                    <div className="flex justify-between font-medium"><span>Calories</span> <span>{analysis.calories}</span></div>
+                                    <Progress value={getProgress(analysis.calories, 2000)} className="h-1.5"/>
+                                  </li>
+                                  <li className="space-y-1">
+                                    <div className="flex justify-between font-medium"><span>Protein</span> <span>{analysis.protein}</span></div>
+                                    <Progress value={getProgress(analysis.protein, 50)} className="h-1.5"/>
+                                  </li>
+                                  <li className="space-y-1">
+                                    <div className="flex justify-between font-medium"><span>Fat</span> <span>{analysis.fat}</span></div>
+                                    <Progress value={getProgress(analysis.fat, 70)} className="h-1.5"/>
+                                  </li>
+                                  <li className="space-y-1">
+                                    <div className="flex justify-between font-medium"><span>Carbs</span> <span>{analysis.carbohydrates}</span></div>
+                                    <Progress value={getProgress(analysis.carbohydrates, 275)} className="h-1.5"/>
+                                  </li>
                               </ul>
                               <p className="text-xs text-muted-foreground mt-3 italic">{analysis.disclaimer}</p>
                             </CardContent>

@@ -9,11 +9,12 @@ import { findRecipesByName, FindRecipesByNameOutput } from '@/ai/flows/find-reci
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Trash2, PlusCircle, ChefHat, Heart, Loader2, Check, X, Pencil, Sparkles, Utensils, Soup, Search } from 'lucide-react';
+import { Upload, Trash2, PlusCircle, ChefHat, Heart, Loader2, Check, X, Pencil, Sparkles, Utensils, Soup, Search, Apple, Carrot, Drumstick } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { RecipeCard } from './recipe-card';
 import { AnimatePresence, motion } from 'framer-motion';
+import { cn } from '@/lib/utils';
 
 type Recipe = SuggestRecipesOutput[0];
 type IdentifiedIngredient = IdentifyIngredientsOutput['ingredients'][0];
@@ -29,6 +30,14 @@ const getConfidenceColor = (confidence: number) => {
   if (confidence > 0.6) return 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800/60';
   return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-800/60';
 };
+
+const getIngredientIcon = (name: string) => {
+    const lowerName = name.toLowerCase();
+    if (['chicken', 'beef', 'pork', 'fish', 'lamb', 'meat'].some(t => lowerName.includes(t))) return <Drumstick className="w-4 h-4 text-red-500" />;
+    if (['carrot', 'broccoli', 'pepper', 'spinach', 'cabbage', 'lettuce', 'vegetable'].some(t => lowerName.includes(t))) return <Carrot className="w-4 h-4 text-orange-500" />;
+    if (['apple', 'banana', 'orange', 'berries', 'fruit'].some(t => lowerName.includes(t))) return <Apple className="w-4 h-4 text-green-500" />;
+    return <Sparkles className="w-4 h-4 text-yellow-500" />;
+}
 
 export function HarvestAiChef({
     activeTab,
@@ -101,13 +110,13 @@ export function HarvestAiChef({
   const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.stopPropagation();
-    event.currentTarget.classList.add('border-primary');
+    event.currentTarget.classList.add('border-primary', 'bg-primary/10');
   };
 
   const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.stopPropagation();
-    event.currentTarget.classList.remove('border-primary');
+    event.currentTarget.classList.remove('border-primary', 'bg-primary/10');
   };
 
   const handleAddIngredient = () => {
@@ -291,7 +300,8 @@ export function HarvestAiChef({
                   </div>
 
                   <div 
-                    className="w-full h-80 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center bg-secondary/20 relative transition-colors duration-300"
+                    className="w-full h-80 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center bg-secondary/20 relative transition-colors duration-300 cursor-pointer hover:border-primary hover:bg-primary/10"
+                    onClick={() => fileInputRef.current?.click()}
                     onDrop={handleDrop}
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
@@ -304,7 +314,7 @@ export function HarvestAiChef({
                       </div>
                     ) : (
                       <>
-                        <Upload className="h-16 w-16 text-muted-foreground mb-4" />
+                        <ChefHat className="h-16 w-16 text-muted-foreground mb-4" />
                         <h2 className="text-2xl font-bold font-headline">Upload Your Ingredients</h2>
                         <p className="text-muted-foreground mt-2">Drag & drop an image here or click to select a file.</p>
                       </>
@@ -321,7 +331,7 @@ export function HarvestAiChef({
                 <div className="max-w-4xl mx-auto">
                   <div className="bg-card p-4 sm:p-6 rounded-xl shadow-sm border border-border/60">
                       <h2 className="text-2xl font-bold font-headline flex items-center gap-2 mb-4">
-                         <Sparkles size={24}/> Your Ingredients
+                         <Sparkles size={24} className="text-accent"/> Your Ingredients
                       </h2>
                       
                       <div className="mb-6 flex gap-2">
@@ -381,6 +391,7 @@ export function HarvestAiChef({
                                   </>
                               ) : (
                                   <>
+                                      {getIngredientIcon(ingredient.name)}
                                       <span className="flex-grow font-medium capitalize truncate">{ingredient.name}</span>
                                       <div className={`text-xs font-bold px-2 py-1 rounded-full border ${getConfidenceColor(ingredient.confidence)}`}>
                                           {(ingredient.confidence * 100).toFixed(0)}%
@@ -407,7 +418,7 @@ export function HarvestAiChef({
                        </AnimatePresence>
                    </div>
                    <div className="mt-6 flex justify-end">
-                     <Button onClick={handleGetRecipesByIngredients} size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90 text-lg py-6 w-full sm:w-auto" disabled={isLoading || ingredients.length === 0}>
+                     <Button onClick={handleGetRecipesByIngredients} size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90 text-lg py-6 w-full sm:w-auto shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5" disabled={isLoading || ingredients.length === 0}>
                          {isSuggesting ? (
                              <>
                                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -426,7 +437,11 @@ export function HarvestAiChef({
                    <div className="flex justify-center mb-6">
                       <div className="bg-card p-1 rounded-full border shadow-sm">
                           <Button variant={activeRecipeTab === 'suggestions' ? 'secondary' : 'ghost'} onClick={() => setActiveRecipeTab('suggestions')} className="rounded-full" disabled={suggestedRecipesList.length === 0}>Suggestions</Button>
-                          <Button variant={activeRecipeTab === 'favorites' ? 'secondary' : 'ghost'} onClick={() => setActiveRecipeTab('favorites')} className="rounded-full" disabled={savedRecipes.length === 0}>Favorites ({savedRecipes.length})</Button>
+                          <Button variant={activeRecipeTab === 'favorites' ? 'secondary' : 'ghost'} onClick={() => setActiveRecipeTab('favorites')} className="rounded-full relative">
+                            <Heart className="w-4 h-4 mr-2" />
+                            Favorites 
+                            {savedRecipes.length > 0 && <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-accent-foreground text-xs">{savedRecipes.length}</span>}
+                            </Button>
                       </div>
                    </div>
                    
@@ -434,7 +449,7 @@ export function HarvestAiChef({
                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                           {[...Array(3)].map((_, i) => (
                               <div key={i} className="bg-card rounded-xl shadow-md border p-4 space-y-4">
-                                <Skeleton className="h-40 w-full rounded-lg" />
+                                <Skeleton className="h-48 w-full rounded-lg" />
                                 <Skeleton className="h-6 w-3/4" />
                                 <div className="flex flex-wrap gap-2">
                                   <Skeleton className="h-5 w-16 rounded-full" />
