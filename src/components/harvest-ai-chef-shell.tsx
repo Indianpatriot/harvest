@@ -17,8 +17,11 @@ export function HarvestAiChefShell() {
       <Button
         variant="ghost"
         className={cn(
-          "flex-1 justify-center gap-2 rounded-full px-6 py-2 text-muted-foreground transition-all duration-300",
-          activeTab === tabName && "text-accent-foreground bg-accent/20"
+          "flex-1 justify-center gap-2 rounded-full px-6 py-2 transition-all duration-300",
+          {
+            "text-accent-foreground bg-accent/20": activeTab === tabName,
+            "text-muted-foreground hover:text-foreground": activeTab !== tabName,
+          }
         )}
         onClick={() => setActiveTab(tabName)}
         // Simple logic for now, client component will handle complex disabling
