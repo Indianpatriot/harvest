@@ -4,7 +4,7 @@
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from './ui/button';
-import { Heart, ImageOff, Clock, Leaf, Egg, Beef, Loader2, BookOpen } from 'lucide-react';
+import { Heart, ImageOff, Clock, Leaf, Egg, Beef, Loader2, BookOpen, ChevronDown } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 import type { SuggestRecipesOutput } from '@/ai/flows/suggest-recipes';
@@ -68,8 +68,8 @@ export function RecipeCard({ recipe, isFavorite, onToggleFavorite }: RecipeCardP
 
 
   return (
-    <div className="bg-card rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 border border-border/60 overflow-hidden flex flex-col h-full">
-      <div className="relative h-48">
+    <div className="bg-card rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 border border-border/60 overflow-hidden flex flex-col h-full group">
+      <div className="relative h-48 overflow-hidden rounded-t-xl">
         {imgError ? (
             <div className="w-full h-full bg-secondary flex flex-col items-center justify-center text-muted-foreground">
                 <ImageOff className="w-12 h-12" />
@@ -81,7 +81,7 @@ export function RecipeCard({ recipe, isFavorite, onToggleFavorite }: RecipeCardP
                 alt={recipe.name}
                 fill
                 className={cn(
-                    "object-cover w-full h-full transition-opacity duration-300",
+                    "object-cover w-full h-full transition-all duration-300 ease-in-out group-hover:scale-105",
                     imgLoading ? "opacity-0" : "opacity-100"
                 )}
                 onError={() => setImgError(true)}
@@ -121,11 +121,12 @@ export function RecipeCard({ recipe, isFavorite, onToggleFavorite }: RecipeCardP
 
         <Accordion type="single" collapsible className="w-full flex-grow">
             <AccordionItem value="details" className="border-b-0">
-                <AccordionTrigger className="text-sm font-semibold hover:no-underline py-2">
+                <AccordionTrigger className="text-sm font-semibold hover:no-underline py-2 [&[data-state=open]>svg]:rotate-180">
                   <div className="flex items-center gap-2">
                     <BookOpen className="w-4 h-4"/>
                     <span>View Recipe Details</span>
                   </div>
+                  <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
                 </AccordionTrigger>
                 <AccordionContent className="pt-2">
                   <div className="space-y-4">
