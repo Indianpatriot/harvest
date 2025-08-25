@@ -40,9 +40,15 @@ const prompt = ai.definePrompt({
   name: 'identifyIngredientsPrompt',
   input: {schema: IdentifyIngredientsInputSchema},
   output: {schema: IdentifyIngredientsOutputSchema},
-  prompt: `You are an expert food identifier. You will identify the ingredients in a photo.
+  prompt: `You are an expert food identifier. You will identify the food ingredients in a photo.
 
-  For each ingredient, provide its name, a unique UUID for its ID, and a confidence score from 0.0 to 1.0 representing how certain you are about the identification.
+  Your task is to:
+  1.  Identify all distinct food items in the image.
+  2.  Consolidate variations of the same ingredient. For example, if you see "tomato" and "tomatoes", list it only once as "tomato". Use singular forms for all ingredients.
+  3.  Filter out any items that are not edible food ingredients.
+  4.  For each valid ingredient, provide its name, a unique UUID for its ID, and a confidence score from 0.0 to 1.0 representing how certain you are about the identification.
+
+  Return a clean, de-duplicated list of validated food ingredients.
 
   Photo: {{media url=photoDataUri}}
   `,
@@ -56,10 +62,26 @@ const identifyIngredientsFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    // Ensure every ingredient has a unique ID, even if the model fails to generate one.
-    if (output) {
-      output.ingredients = output.ingredients.map(ing => ({...ing, id: ing.id || uuidv4()}));
+    
+    if (!output) {
+      return { ingredients: [] };
     }
-    return output!;
+
+    // Post-processing to ensure uniqueness, even if the model provides duplicates.
+    const seen = new Set<string>();
+    const uniqueIngredients = output.ingredients.filter(ingredient => {
+        const lowerCaseName = ingredient.name.toLowerCase();
+        if (seen.has(lowerCaseName)) {
+            return false;
+        } else {
+            seen.add(lowerCaseName);
+            return true;
+        }
+    });
+
+    // Ensure every ingredient has a unique ID.
+    const finalIngredients = uniqueIngredients.map(ing => ({...ing, id: ing.id || uuidv4()}));
+
+    return { ingredients: finalIngredients };
   }
 );
