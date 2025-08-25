@@ -9,7 +9,7 @@ import { findRecipesByName, FindRecipesByNameOutput } from '@/ai/flows/find-reci
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Trash2, PlusCircle, ChefHat, Heart, Loader2, Check, X, Pencil, Sparkles, Utensils, Soup, Search, Apple, Carrot, Drumstick } from 'lucide-react';
+import { Upload, Trash2, PlusCircle, ChefHat, Heart, Loader2, Check, X, Pencil, Sparkles, Utensils, Soup, Search, Apple, Carrot, Drumstick, Plus } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { RecipeCard } from './recipe-card';
@@ -273,6 +273,7 @@ export function HarvestAiChef({
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: -20, opacity: 0 }}
               transition={{ duration: 0.2 }}
+              className="relative"
           >
               {activeTab === 'upload' && (
                 <div className="max-w-2xl mx-auto flex flex-col items-center text-center gap-6">
@@ -286,7 +287,7 @@ export function HarvestAiChef({
                              onKeyDown={(e) => e.key === 'Enter' && handleFindRecipesByName()}
                              className="bg-background"
                          />
-                         <Button onClick={handleFindRecipesByName} variant="primary" className="shrink-0" disabled={isLoading}>
+                         <Button onClick={handleFindRecipesByName} variant="default" className="shrink-0" disabled={isLoading}>
                              {isFinding ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
                              <span className="hidden sm:inline ml-2">Find Recipes</span>
                          </Button>
@@ -494,6 +495,18 @@ export function HarvestAiChef({
               )}
           </motion.div>
         </AnimatePresence>
+
+        {activeTab === 'recipes' && !isLoading && (
+            <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }}>
+                <Button 
+                    onClick={() => setActiveTab('upload')}
+                    className="fixed bottom-8 right-8 h-16 w-16 rounded-full bg-primary shadow-lg hover:bg-primary/90 flex items-center justify-center text-primary-foreground"
+                    aria-label="Add new recipe"
+                >
+                    <Plus className="h-8 w-8" />
+                </Button>
+            </motion.div>
+        )}
     </main>
   );
 }
