@@ -16,6 +16,19 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      // Add Open Food Facts image domains
+      {
+        protocol: 'https',
+        hostname: 'images.openfoodfacts.org',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'static.openfoodfacts.org',
+        port: '',
+        pathname: '/**',
+      },
     ],
     // Allow data URIs
     dangerouslyAllowSVG: true,

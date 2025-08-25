@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ChefHat, Upload, Sparkles, Utensils } from 'lucide-react';
-import { HarvestAiChef } from './harvest-ai-chef';
+import { EnhancedHarvestAiChef } from './enhanced-harvest-ai-chef';
 import { ThemeToggle } from './theme-toggle';
 import { cn } from '@/lib/utils';
 
@@ -61,7 +61,7 @@ export function HarvestAiChefShell() {
         </nav>
       </div>
 
-      <HarvestAiChef activeTab={activeTab} setActiveTab={setActiveTab} />
+      <EnhancedHarvestAiChef activeTab={activeTab} setActiveTab={setActiveTab} />
     </div>
   );
 }
