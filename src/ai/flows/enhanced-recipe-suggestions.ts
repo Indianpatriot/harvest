@@ -123,7 +123,7 @@ async function generateAIRecipes(
       })
     },
     output: {
-      schema: z.array(EnhancedRecipeSchema.omit({ sourceInfo: true }))
+      schema: z.array(EnhancedRecipeSchema)
     },
     prompt: `Create 3 detailed recipes using these ingredients: {{{ingredients}}}
     ${preferredCuisine ? `Preferred cuisine: ${preferredCuisine}` : ''}
