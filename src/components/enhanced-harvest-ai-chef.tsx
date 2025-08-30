@@ -45,9 +45,11 @@ const getIngredientIcon = (name: string) => {
 export function EnhancedHarvestAiChef({
     activeTab,
     setActiveTab,
+    resetToUpload,
 }: {
     activeTab: string;
     setActiveTab: (tab: string) => void;
+    resetToUpload?: () => void;
 }) {
   const { toast } = useToast();
   const [isIdentifying, startIdentifying] = useTransition();
@@ -582,7 +584,10 @@ export function EnhancedHarvestAiChef({
                            <Soup className="h-24 w-24 text-border" />
                            <h3 className="text-2xl font-bold font-headline text-foreground">Nothing to see here... yet!</h3>
                            <p className="max-w-md">Once you add ingredients and generate recipes, your enhanced culinary masterpieces will appear here.</p>
-                           <Button onClick={() => setActiveTab('upload')}>Start by Uploading Ingredients</Button>
+                           <div className="flex items-center gap-2 text-sm bg-primary/10 text-primary px-3 py-2 rounded-lg">
+                             <Plus className="h-4 w-4" />
+                             <span>Use the + button to start a new recipe search</span>
+                           </div>
                        </div>
                      )
                    )}
@@ -594,9 +599,9 @@ export function EnhancedHarvestAiChef({
         {activeTab === 'recipes' && !isLoading && (
             <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }}>
                 <Button 
-                    onClick={() => setActiveTab('upload')}
+                    onClick={() => resetToUpload ? resetToUpload() : setActiveTab('upload')}
                     className="fixed bottom-8 right-8 h-16 w-16 rounded-full bg-primary shadow-lg hover:bg-primary/90 flex items-center justify-center text-primary-foreground"
-                    aria-label="Add new recipe"
+                    aria-label="Start new recipe search"
                 >
                     <Plus className="h-8 w-8" />
                 </Button>

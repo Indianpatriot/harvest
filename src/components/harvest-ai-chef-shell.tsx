@@ -12,28 +12,51 @@ import { cn } from '@/lib/utils';
 export function HarvestAiChefShell() {
   const [activeTab, setActiveTab] = useState('upload');
   
-  const renderNavButton = (tabName: string, icon: React.ReactNode, label: string) => (
-    <div className="relative">
-      <Button
-        variant="ghost"
-        className={cn(
-          "flex-1 justify-center gap-2 rounded-full px-6 py-2 transition-all duration-300",
-          {
-            "text-accent-foreground bg-accent/20": activeTab === tabName,
-            "text-muted-foreground hover:text-foreground": activeTab !== tabName,
-          }
+  // Function to handle tab changes with validation
+  const handleTabChange = (tabName: string) => {
+    // Allow switching to upload only from upload state or via the + button reset
+    if (tabName === 'upload' && (activeTab === 'ingredients' || activeTab === 'recipes')) {
+      return; // Block direct navigation to upload from ingredients/recipes
+    }
+    setActiveTab(tabName);
+  };
+
+  // Function to reset to upload (called by + button)
+  const resetToUpload = () => {
+    setActiveTab('upload');
+  };
+  
+  const renderNavButton = (tabName: string, icon: React.ReactNode, label: string) => {
+    const isDisabled = (
+      // Disable upload tab when in ingredients or recipes state
+      (tabName === 'upload' && (activeTab === 'ingredients' || activeTab === 'recipes')) ||
+      // Disable other tabs when in upload state (existing logic)
+      (tabName !== 'upload' && activeTab === 'upload')
+    );
+    
+    return (
+      <div className="relative">
+        <Button
+          variant="ghost"
+          className={cn(
+            "flex-1 justify-center gap-2 rounded-full px-6 py-2 transition-all duration-300",
+            {
+              "text-accent-foreground bg-accent/20": activeTab === tabName,
+              "text-muted-foreground hover:text-foreground": activeTab !== tabName && !isDisabled,
+              "text-muted-foreground/50 cursor-not-allowed": isDisabled,
+            }
+          )}
+          onClick={() => handleTabChange(tabName)}
+          disabled={isDisabled}
+        >
+          {icon} {label}
+        </Button>
+        {activeTab === tabName && (
+          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
         )}
-        onClick={() => setActiveTab(tabName)}
-        // Simple logic for now, client component will handle complex disabling
-        disabled={tabName !== 'upload' && activeTab === 'upload'} 
-      >
-        {icon} {label}
-      </Button>
-      {activeTab === tabName && (
-        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
-      )}
-    </div>
-  );
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground font-body flex flex-col">
@@ -61,7 +84,7 @@ export function HarvestAiChefShell() {
         </nav>
       </div>
 
-      <EnhancedHarvestAiChef activeTab={activeTab} setActiveTab={setActiveTab} />
+      <EnhancedHarvestAiChef activeTab={activeTab} setActiveTab={setActiveTab} resetToUpload={resetToUpload} />
     </div>
   );
 }
